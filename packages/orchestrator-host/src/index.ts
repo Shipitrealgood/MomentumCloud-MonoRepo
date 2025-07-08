@@ -1,11 +1,13 @@
+// orchestrator-host/index.ts
+
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { CallToolResultSchema, ContentBlock } from "@modelcontextprotocol/sdk/types.js";
 import path from "path";
 import readline from "readline/promises";
 import 'dotenv/config';
 import crypto from 'crypto';
 import { readTokens, saveTokens, TokenData } from "./token-store.js";
+import { AgentService } from "./agentService.js"; // <-- IMPORT THE NEW SERVICE
 
 const {
     SALESFORCE_CLIENT_ID,
@@ -14,7 +16,7 @@ const {
     SALESFORCE_CALLBACK_URL
 } = process.env;
 
-// --- PKCE Generation Functions ---
+// --- PKCE Generation Functions (unchanged) ---
 function base64URLEncode(str: Buffer) {
     return str.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
@@ -22,11 +24,11 @@ function sha256(buffer: string) {
     return crypto.createHash('sha256').update(buffer).digest();
 }
 
-// --- Main Application ---
+
 class Orchestrator {
-    private salesforceClient: Client | undefined;
-    private sfAccessToken: string | undefined;
-    private sfInstanceUrl: string | undefined;
+    private salesforceClient!: Client;
+    private sfAccessToken!: string;
+    private sfInstanceUrl!: string;
 
     async start() {
         console.log("Orchestrator starting...");
@@ -41,10 +43,22 @@ class Orchestrator {
             return;
         }
 
+        // 1. Set up the connection to the Salesforce MCP server
         await this.startSalesforceServer();
-        await this.listSalesforceTools();
-        await this.callSalesforceTool();
+        
+        // 2. Create the agent and pass it the connected client
+        const agent = new AgentService(this.salesforceClient);
+
+        // 3. The agent discovers the server's capabilities (tools, resources)
+        await agent.initialize();
+
+        // 4. Start the agent's main interactive loop
+        await agent.startChatLoop();
+
+        console.log("Chat session ended. Shutting down orchestrator.");
     }
+
+    // --- All authentication and server connection methods below are UNCHANGED ---
 
     private async initializeTokens() {
         let tokens = await readTokens();
@@ -73,7 +87,6 @@ class Orchestrator {
         params.append("refresh_token", refreshToken);
         params.append("client_id", SALESFORCE_CLIENT_ID!);
         params.append("client_secret", SALESFORCE_CLIENT_SECRET!);
-
         try {
             const response = await fetch(tokenUrl, { method: 'POST', body: params });
             const data = await response.json();
@@ -88,7 +101,6 @@ class Orchestrator {
                 refreshToken: data.refresh_token || refreshToken,
                 instanceUrl: data.instance_url,
             };
-
             await saveTokens(newTokens);
             return newTokens;
         } catch (error) {
@@ -109,11 +121,9 @@ class Orchestrator {
         authUrl.searchParams.set("redirect_uri", SALESFORCE_CALLBACK_URL!);
         authUrl.searchParams.set("code_challenge", code_challenge);
         authUrl.searchParams.set("code_challenge_method", "S256");
-
         console.log("\nACTION REQUIRED:");
         console.log("1. Manually copy and paste the following URL into your browser:\n");
         console.log(authUrl.href);
-
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         const redirectUrlString = await rl.question("\n2. Paste the entire redirected URL here: ");
         rl.close();
@@ -139,10 +149,8 @@ class Orchestrator {
         params.append("client_secret", SALESFORCE_CLIENT_SECRET!);
         params.append("redirect_uri", SALESFORCE_CALLBACK_URL!);
         params.append("code_verifier", code_verifier);
-
         const response = await fetch(tokenUrl, { method: 'POST', body: params });
         const data = await response.json();
-
         if (!response.ok) {
             console.error("Failed to get access token:", data.error_description);
             return null;
@@ -166,27 +174,6 @@ class Orchestrator {
         this.salesforceClient = new Client({ name: "salesforce-client-in-orchestrator", version: "1.0.0" });
         await this.salesforceClient.connect(transport);
         console.log("\n--> Successfully connected to Salesforce MCP Server.");
-    }
-
-    async listSalesforceTools() {
-        if (!this.salesforceClient) return;
-        const tools = await this.salesforceClient.listTools();
-        console.log("Available Salesforce Tools:", tools.tools.map(t => t.name));
-    }
-
-    async callSalesforceTool() {
-        if (!this.salesforceClient) return;
-        console.log("\nCalling the 'query-contacts' tool...");
-        const result = await this.salesforceClient.callTool(
-            { name: "query-contacts", arguments: { accountName: "Your Real Account Name" } },
-            CallToolResultSchema
-        );
-        if (result.content && Array.isArray(result.content)) {
-            const textContent = result.content.find((c: ContentBlock) => c.type === 'text');
-            if (textContent && 'text' in textContent) {
-                console.log("\nTool Result:", textContent.text);
-            }
-        }
     }
 }
 
