@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import jsforce from "jsforce";
@@ -24,6 +24,109 @@ function getSalesforceConnection() {
     accessToken: accessToken,
   });
 }
+
+server.registerResource(
+  "salesforce-account",
+  new ResourceTemplate("salesforce://accounts/{accountName}", {
+    list: async () => {
+      const conn = getSalesforceConnection();
+      const result = await conn.query<{ Name: string }>("SELECT Name FROM Account LIMIT 10");
+      return {
+        resources: result.records.map(r => ({
+          name: r.Name,
+          uri: `salesforce://accounts/${encodeURIComponent(r.Name)}`,
+          description: `Salesforce Account: ${r.Name}`
+        }))
+      };
+    },
+    complete: {
+      accountName: async (value: string) => {
+        if (!value) return [];
+        const conn = getSalesforceConnection();
+        const result = await conn.query<{ Name: string }>(`SELECT Name FROM Account WHERE Name LIKE '${value}%' LIMIT 10`);
+        return result.records.map(r => r.Name);
+      }
+    }
+  }),
+  {
+    title: "Salesforce Account",
+    description: "Represents a single Salesforce Account, allowing you to read its details."
+  },
+  async (uri, { accountName }) => {
+    try {
+      const conn = getSalesforceConnection();
+      console.error(`--> Querying for Account: '${accountName}'`);
+
+      const result = await conn.query<{ Id: string; Name: string; Industry: string | null; Phone: string | null; Website: string | null; }>(
+        `SELECT Id, Name, Industry, Phone, Website FROM Account WHERE Name = '${accountName}' LIMIT 1`
+      );
+
+      if (result.totalSize === 0) {
+        throw new Error(`Account not found: ${accountName}`);
+      }
+
+      const account = result.records[0];
+      const accountDetails = `
+# Account: ${account.Name}
+
+**ID:** ${account.Id}
+**Industry:** ${account.Industry || 'N/A'}
+**Phone:** ${account.Phone || 'N/A'}
+**Website:** ${account.Website || 'N/A'}
+      `;
+
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            text: accountDetails,
+            mimeType: 'text/markdown'
+          },
+        ],
+      };
+    } catch (error: any) {
+      console.error("--> Salesforce API Error:", error.message);
+      throw new Error(`Error fetching Salesforce Account: ${error.message}`);
+    }
+  }
+);
+
+server.registerTool(
+  "edit-contact",
+  {
+    title: "Edit Salesforce Contact",
+    description: "Edits the details of an existing contact in Salesforce.",
+    inputSchema: {
+      contactId: z.string().describe("The ID of the contact to edit."),
+      email: z.string().optional().describe("The new email address for the contact."),
+      phone: z.string().optional().describe("The new phone number for the contact."),
+    },
+  },
+  async ({ contactId, email, phone }) => {
+    try {
+        const conn = getSalesforceConnection();
+        const fieldsToUpdate: { Id: string; Email?: string; Phone?: string } = { Id: contactId };
+        if (email) fieldsToUpdate.Email = email;
+        if (phone) fieldsToUpdate.Phone = phone;
+
+        if (Object.keys(fieldsToUpdate).length === 1) {
+            return { content: [{ type: "text", text: "No new information provided to update." }], isError: true };
+        }
+
+        console.error(`--> Editing Contact ID '${contactId}' with new data.`);
+        const result: any = await conn.sobject("Contact").update(fieldsToUpdate);
+
+        if (result.success) {
+            return { content: [{ type: "text", text: `Successfully updated Contact ID: ${contactId}` }] };
+        } else {
+            return { content: [{ type: 'text', text: `Error updating Contact: ${JSON.stringify(result.errors)}` }], isError: true };
+        }
+    } catch (error: any) {
+        console.error("--> Salesforce API Error:", error.message);
+        return { content: [{ type: 'text', text: `Error updating Salesforce Contact: ${error.message}` }], isError: true };
+    }
+  }
+);
 
 server.registerTool(
   "query-contacts",
