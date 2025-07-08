@@ -1,0 +1,16 @@
+{
+  "name": "@mcp-agent/orchestrator-host",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.15.0",
+    "express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0"
+  }
+}

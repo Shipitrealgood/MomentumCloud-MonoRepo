@@ -1,0 +1,18 @@
+{
+  "name": "momentumcloud-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -ws",
+    "start:host": "node packages/orchestrator-host/dist/index.js",
+    "heroku-postbuild": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "@types/node": "^22.0.2",
+    "tsx": "^4.16.5"
+  }
+}
