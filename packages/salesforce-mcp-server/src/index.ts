@@ -54,35 +54,41 @@ server.registerResource(
   },
   async (uri, { accountName }) => {
     try {
+      // --- START OF THE FIX ---
+      
+      // 1. Check if accountName is an array. If so, take the first item. If not, use it as is.
+      const singleAccountName = Array.isArray(accountName) ? accountName[0] : accountName;
+
+      // 2. We must handle the case where the name might be missing after our check.
+      if (!singleAccountName) {
+        throw new Error("Account name provided was empty or invalid.");
+      }
+      
+      // 3. Now we can safely decode the single name.
+      const decodedAccountName = decodeURIComponent(singleAccountName);
+
+      // --- END OF THE FIX ---
+
       const conn = getSalesforceConnection();
-      console.error(`--> Querying for Account: '${accountName}'`);
+      console.error(`--> Querying for Account: '${decodedAccountName}'`);
 
       const result = await conn.query<{ Id: string; Name: string; Industry: string | null; Phone: string | null; Website: string | null; }>(
-        `SELECT Id, Name, Industry, Phone, Website FROM Account WHERE Name = '${accountName}' LIMIT 1`
+        `SELECT Id, Name, Industry, Phone, Website FROM Account WHERE Name = '${decodedAccountName}' LIMIT 1`
       );
 
       if (result.totalSize === 0) {
-        throw new Error(`Account not found: ${accountName}`);
+        throw new Error(`Account not found: ${decodedAccountName}`);
       }
 
       const account = result.records[0];
-      const accountDetails = `
-# Account: ${account.Name}
-
-**ID:** ${account.Id}
-**Industry:** ${account.Industry || 'N/A'}
-**Phone:** ${account.Phone || 'N/A'}
-**Website:** ${account.Website || 'N/A'}
-      `;
+      const accountDetails = `# Account: ${account.Name}\n\n**ID:** ${account.Id}\n**Industry:** ${account.Industry || 'N/A'}\n**Phone:** ${account.Phone || 'N/A'}\n**Website:** ${account.Website || 'N/A'}`;
 
       return {
-        contents: [
-          {
+        contents: [{
             uri: uri.href,
             text: accountDetails,
             mimeType: 'text/markdown'
-          },
-        ],
+        }],
       };
     } catch (error: any) {
       console.error("--> Salesforce API Error:", error.message);
@@ -92,10 +98,51 @@ server.registerResource(
 );
 
 server.registerTool(
+    "get_account_info",
+    {
+        title: "Get Salesforce Account Info",
+        description: "Retrieves specific information (like phone number or industry) for a Salesforce Account.",
+        inputSchema: {
+            accountName: z.string().describe("The name of the account to query."),
+            fields: z.array(z.string()).describe("The specific fields to retrieve (e.g., ['Phone', 'Industry'])."),
+        },
+    },
+    async ({ accountName, fields }) => {
+        try {
+            const conn = getSalesforceConnection();
+            console.error(`--> TOOL: Getting fields '${fields.join(', ')}' for Account: '${accountName}'`);
+
+            const soql = `SELECT ${fields.join(', ')} FROM Account WHERE Name = '${accountName}' LIMIT 1`;
+            const result = await conn.query(soql);
+
+            if (result.totalSize === 0) {
+                return { content: [{ type: "text", text: `Account not found: ${accountName}` }], isError: true };
+            }
+
+            const account = result.records[0];
+            const response = fields.map(field => `${field}: ${account[field] || 'N/A'}`).join('\n');
+            
+            return {
+                content: [{
+                    type: "text",
+                    text: response,
+                }],
+            };
+        } catch (error: any) {
+            console.error("--> Salesforce API Error:", error.message);
+            return {
+                content: [{ type: 'text', text: `Error fetching Salesforce Account: ${error.message}` }],
+                isError: true
+            };
+        }
+    }
+);
+
+server.registerTool(
   "edit-contact",
   {
     title: "Edit Salesforce Contact",
-    description: "Edits the details of an existing contact in Salesforce.",
+    description: "Edits the details of an existing contact in Salesforce.  Use contactId for ID",
     inputSchema: {
       contactId: z.string().describe("The ID of the contact to edit."),
       email: z.string().optional().describe("The new email address for the contact."),
