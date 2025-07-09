@@ -76,7 +76,7 @@ export class AgentService {
 
     public async startChatLoop() {
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-        console.log("\n💬 Salesforce Agent (powered by OpenAI) is ready. Type 'quit' to exit.");
+        console.log("\n💬 C.A.L.I.A. (powered by OpenAI) is ready. Type 'quit' to exit.");
 
         const history: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [{
             role: 'system',

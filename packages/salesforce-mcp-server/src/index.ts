@@ -1,3 +1,5 @@
+// Artifact of totally working basic setup lives on previous commit.  These are active tool changes that we are making
+// Added resource for contacts and have had some changes with query-contacts
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -96,6 +98,47 @@ server.registerResource(
     }
   }
 );
+
+// *** NEW RESOURCE ***
+// This new resource defines a "Contact" as a noun. Its only job is to read
+// the details of a SINGLE contact when given a specific ID.
+server.registerResource(
+  "salesforce-contact",
+  new ResourceTemplate("salesforce://contacts/{contactId}", {
+    list: undefined
+  }),
+  {
+    title: "Salesforce Contact",
+    description: "Represents a single Salesforce Contact, allowing you to read its details."
+  },
+  async (uri, { contactId }) => {
+    try {
+      const singleContactId = Array.isArray(contactId) ? contactId[0] : contactId;
+      if (!singleContactId) {
+          throw new Error("Contact ID was not provided.");
+      }
+      const conn = getSalesforceConnection();
+      console.error(`--> Reading Contact ID: '${singleContactId}'`);
+      
+      const contact = await conn.sobject('Contact').retrieve(singleContactId) as any;
+
+      const contactDetails = `# Contact: ${contact.Name}\n\n**ID:** ${contact.Id}\n**Title:** ${contact.Title || 'N/A'}\n**Email:** ${contact.Email || 'N/A'}\n**Phone:** ${contact.Phone || 'N/A'}`;
+
+      return {
+        contents: [{
+          uri: uri.href,
+          text: contactDetails,
+          mimeType: 'text/markdown'
+        }],
+      };
+    } catch (error: any) {
+      console.error("--> Salesforce API Error:", error.message);
+      throw new Error(`Error fetching Salesforce Contact: ${error.message}`);
+    }
+  }
+);
+
+// Deleted find contact by name due to bug error in it
 
 server.registerTool(
     "get_account_info",
@@ -235,6 +278,7 @@ server.registerTool(
     }
 );
 
+// Query restored to former glory.  Scary break earlier
 server.registerTool(
   "query-contacts",
   {
