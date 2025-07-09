@@ -2,12 +2,13 @@
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { ElicitRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import path from "path";
 import readline from "readline/promises";
 import 'dotenv/config';
 import crypto from 'crypto';
 import { readTokens, saveTokens, TokenData } from "./token-store.js";
-import { AgentService } from "./agentService.js"; // <-- IMPORT THE NEW SERVICE
+import { AgentService } from "./agentService.js";
 
 const {
     SALESFORCE_CLIENT_ID,
@@ -43,22 +44,32 @@ class Orchestrator {
             return;
         }
 
-        // 1. Set up the connection to the Salesforce MCP server
+        // Set up the connection to the Salesforce MCP server
         await this.startSalesforceServer();
         
-        // 2. Create the agent and pass it the connected client
+        // **This is now correctly placed after the client has been fully connected.**
+        this.salesforceClient.setRequestHandler(ElicitRequestSchema, async (request) => {
+            const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+            console.log(`\n🤔 SERVER REQUEST: ${request.params.message}`);
+            const answer = await rl.question("Confirm? (yes/no): ");
+            rl.close();
+
+            const confirmed = answer.toLowerCase().startsWith('y');
+            
+            return {
+                action: "accept",
+                content: {
+                    confirm: confirmed,
+                },
+            };
+        });
+        
         const agent = new AgentService(this.salesforceClient);
-
-        // 3. The agent discovers the server's capabilities (tools, resources)
         await agent.initialize();
-
-        // 4. Start the agent's main interactive loop
         await agent.startChatLoop();
 
         console.log("Chat session ended. Shutting down orchestrator.");
     }
-
-    // --- All authentication and server connection methods below are UNCHANGED ---
 
     private async initializeTokens() {
         let tokens = await readTokens();
@@ -171,7 +182,19 @@ class Orchestrator {
             command: "node",
             args: [salesforceServerPath, this.sfAccessToken!, this.sfInstanceUrl!],
         });
-        this.salesforceClient = new Client({ name: "salesforce-client-in-orchestrator", version: "1.0.0" });
+        
+        // --- START OF THE FIX ---
+        // Create the client instance here, once, and declare its capabilities.
+        this.salesforceClient = new Client(
+            { name: "salesforce-client-in-orchestrator", version: "1.0.0" },
+            { 
+                capabilities: {
+                    elicitation: {} // This tells the server "I can handle elicitation requests"
+                }
+            }
+        );
+        // --- END OF THE FIX ---
+
         await this.salesforceClient.connect(transport);
         console.log("\n--> Successfully connected to Salesforce MCP Server.");
     }

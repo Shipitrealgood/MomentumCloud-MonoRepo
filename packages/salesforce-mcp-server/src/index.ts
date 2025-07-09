@@ -4,6 +4,7 @@ import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mc
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import jsforce from "jsforce";
+import { ElicitResultSchema } from "@modelcontextprotocol/sdk/types.js";
 
 // The server now expects the access token and instance URL to be passed in as arguments.
 const [accessToken, instanceUrl] = process.argv.slice(2);
@@ -227,25 +228,55 @@ server.registerTool(
         inputSchema: {
             contactId: z.string().describe("The unique 15 or 18-character Salesforce ID of the contact."),
             employmentStatus: z.enum(['Active', 'Terminated']).describe("The new employment status for the contact."),
-            // Re-added Termination Type as it is a required field for termination.
             terminationType: z.enum(['Voluntary', 'Involuntary']).optional().describe("MUST be provided if employmentStatus is 'Terminated'."),
             employmentTermDate: z.string().optional().describe("The termination date in YYYY-MM-DD format. MUST be provided if employmentStatus is 'Terminated'."),
             reason: z.string().describe("A clear, required reason for the status change."),
         },
+        annotations: {
+            destructiveHint: true
+        }
     },
-    async ({ contactId, employmentStatus, terminationType, employmentTermDate, reason }) => {
+    // The 'extra' parameter gives us access to sendRequest
+    async ({ contactId, employmentStatus, terminationType, employmentTermDate, reason }, extra) => {
         try {
-            // Updated Safety Check: Now verifies all required fields for termination.
+            // --- START OF THE CORRECTED CODE ---
+
+            // 1. Manually construct and send the elicitation request using extra.sendRequest
+            const confirmation = await extra.sendRequest({
+                method: 'elicitation/create',
+                params: {
+                    message: `You are about to change the employment status for contact ID ${contactId} to "${employmentStatus}". This is a significant change. Are you sure you want to proceed?`,
+                    requestedSchema: {
+                        type: 'object',
+                        properties: {
+                            confirm: {
+                                type: 'boolean',
+                                title: 'Confirm Action'
+                            }
+                        },
+                        required: ['confirm']
+                    }
+                }
+            }, ElicitResultSchema);
+
+            // 2. Check the user's response.
+            if (confirmation.action !== 'accept' || !confirmation.content?.confirm) {
+                return {
+                    content: [{ type: "text", text: "Operation cancelled by the user." }],
+                    isError: true
+                };
+            }
+
+            // --- END OF THE CORRECTED CODE ---
+
             if (employmentStatus === 'Terminated' && (!employmentTermDate || !terminationType)) {
                 return { content: [{ type: "text", text: "Termination failed. You must provide both an employmentTermDate and a terminationType when setting the status to 'Terminated'." }], isError: true };
             }
 
             const conn = getSalesforceConnection();
-
-            // Using the exact custom field API names for all three fields.
-            const fieldsToUpdate: { 
-                Id: string; 
-                Employment_Status__c: string; 
+            const fieldsToUpdate: {
+                Id: string;
+                Employment_Status__c: string;
                 Termination_Type__c?: string;
                 Employment_Term_Date__c?: string;
                 Description: string;
@@ -255,13 +286,8 @@ server.registerTool(
                 Description: `Status changed on ${new Date().toISOString()}. Reason: ${reason}`
             };
 
-            // Add the optional fields to the update object if they were provided.
-            if (terminationType) {
-                fieldsToUpdate.Termination_Type__c = terminationType;
-            }
-            if (employmentTermDate) {
-                fieldsToUpdate.Employment_Term_Date__c = employmentTermDate;
-            }
+            if (terminationType) fieldsToUpdate.Termination_Type__c = terminationType;
+            if (employmentTermDate) fieldsToUpdate.Employment_Term_Date__c = employmentTermDate;
 
             console.error(`--> Updating employment status for Contact ID '${contactId}' to '${employmentStatus}'`);
             const result: any = await conn.sobject("Contact").update(fieldsToUpdate);
