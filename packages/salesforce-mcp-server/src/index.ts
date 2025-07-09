@@ -142,9 +142,10 @@ server.registerTool(
   "edit-contact",
   {
     title: "Edit Salesforce Contact",
-    description: "Edits the details of an existing contact in Salesforce.  Use contactId for ID",
+    description: "Edits only the email or phone number of the contact.",
     inputSchema: {
-      contactId: z.string().describe("The ID of the contact to edit."),
+      // **THE FIX**: A much clearer description for the parameter.
+      contactId: z.string().describe("The unique 15 or 18-character Salesforce ID of the contact to edit. IMPORTANT: Do NOT use the contact's name; use the ID obtained from the 'query-contacts' tool."),
       email: z.string().optional().describe("The new email address for the contact."),
       phone: z.string().optional().describe("The new phone number for the contact."),
     },
@@ -176,10 +177,69 @@ server.registerTool(
 );
 
 server.registerTool(
+    "change_contact_employment_status",
+    {
+        title: "Change Contact Employment Status",
+        description: "WARNING: High-impact action. Changes a contact's core employment status to 'Active' or 'Terminated'.",
+        inputSchema: {
+            contactId: z.string().describe("The unique 15 or 18-character Salesforce ID of the contact."),
+            employmentStatus: z.enum(['Active', 'Terminated']).describe("The new employment status for the contact."),
+            // Re-added Termination Type as it is a required field for termination.
+            terminationType: z.enum(['Voluntary', 'Involuntary']).optional().describe("MUST be provided if employmentStatus is 'Terminated'."),
+            employmentTermDate: z.string().optional().describe("The termination date in YYYY-MM-DD format. MUST be provided if employmentStatus is 'Terminated'."),
+            reason: z.string().describe("A clear, required reason for the status change."),
+        },
+    },
+    async ({ contactId, employmentStatus, terminationType, employmentTermDate, reason }) => {
+        try {
+            // Updated Safety Check: Now verifies all required fields for termination.
+            if (employmentStatus === 'Terminated' && (!employmentTermDate || !terminationType)) {
+                return { content: [{ type: "text", text: "Termination failed. You must provide both an employmentTermDate and a terminationType when setting the status to 'Terminated'." }], isError: true };
+            }
+
+            const conn = getSalesforceConnection();
+
+            // Using the exact custom field API names for all three fields.
+            const fieldsToUpdate: { 
+                Id: string; 
+                Employment_Status__c: string; 
+                Termination_Type__c?: string;
+                Employment_Term_Date__c?: string;
+                Description: string;
+            } = {
+                Id: contactId,
+                Employment_Status__c: employmentStatus,
+                Description: `Status changed on ${new Date().toISOString()}. Reason: ${reason}`
+            };
+
+            // Add the optional fields to the update object if they were provided.
+            if (terminationType) {
+                fieldsToUpdate.Termination_Type__c = terminationType;
+            }
+            if (employmentTermDate) {
+                fieldsToUpdate.Employment_Term_Date__c = employmentTermDate;
+            }
+
+            console.error(`--> Updating employment status for Contact ID '${contactId}' to '${employmentStatus}'`);
+            const result: any = await conn.sobject("Contact").update(fieldsToUpdate);
+
+            if (result.success) {
+                return { content: [{ type: "text", text: `Successfully updated employment status for Contact ID: ${contactId}.` }] };
+            } else {
+                return { content: [{ type: 'text', text: `Error updating status: ${JSON.stringify(result.errors)}` }], isError: true };
+            }
+        } catch (error: any) {
+            console.error("--> Salesforce API Error:", error.message);
+            return { content: [{ type: 'text', text: `Error changing contact status: ${error.message}` }], isError: true };
+        }
+    }
+);
+
+server.registerTool(
   "query-contacts",
   {
     title: "Query Salesforce Contacts",
-    description: "Retrieves a list of contacts from a specific Salesforce Account.",
+    description: "Retrieves a list of contacts, including their names, emails, and critically, their unique Salesforce IDs from a specific Salesforce Account.",
     inputSchema: {
       accountName: z.string().describe("The name of the account to query contacts for."),
     },
@@ -189,15 +249,17 @@ server.registerTool(
       const conn = getSalesforceConnection();
       console.error(`--> Querying for contacts where Account.Name = '${accountName}'`);
 
-      const result = await conn.query<{ Name: string; Email: string | null; }>(
-        `SELECT Name, Email FROM Contact WHERE Account.Name = '${accountName}' LIMIT 5`
+      // **THE FIX**: Add 'Id' to the query
+      const result = await conn.query<{ Id: string; Name: string; Email: string | null; }>(
+        `SELECT Id, Name, Email FROM Contact WHERE Account.Name = '${accountName}' LIMIT 5`
       );
 
       if (result.totalSize === 0) {
         return { content: [{ type: "text", text: `No contacts found for account: ${accountName}` }] };
       }
 
-      const contacts = result.records.map(r => ({ name: r.Name, email: r.Email }));
+      // **THE FIX**: Add the 'id' to the returned data
+      const contacts = result.records.map(r => ({ id: r.Id, name: r.Name, email: r.Email }));
 
       return {
         content: [

@@ -96,7 +96,7 @@ export class AgentService {
     
     private async processAgentTurn(messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]) {
         const response = await this.openai.chat.completions.create({
-            model: 'gpt-4o',
+            model: 'gpt-4.1-mini',
             messages: messages,
             tools: this.availableTools,
             tool_choice: 'auto',
@@ -159,7 +159,7 @@ export class AgentService {
 
             messages.push(...toolOutputs);
             
-            const finalResponse = await this.openai.chat.completions.create({ model: 'gpt-4o', messages: messages });
+            const finalResponse = await this.openai.chat.completions.create({ model: 'gpt-4.1-mini', messages: messages });
             console.log(`\nAI: ${finalResponse.choices[0].message.content}`);
         } else {
             console.log(`\nAI: ${responseMessage.content}`);
