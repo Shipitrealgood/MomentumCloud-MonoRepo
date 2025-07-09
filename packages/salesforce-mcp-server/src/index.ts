@@ -121,9 +121,16 @@ server.registerResource(
       const conn = getSalesforceConnection();
       console.error(`--> Reading Contact ID: '${singleContactId}'`);
       
-      const contact = await conn.sobject('Contact').retrieve(singleContactId) as any;
+      // --- START OF THE FIX ---
 
-      const contactDetails = `# Contact: ${contact.Name}\n\n**ID:** ${contact.Id}\n**Title:** ${contact.Title || 'N/A'}\n**Email:** ${contact.Email || 'N/A'}\n**Phone:** ${contact.Phone || 'N/A'}`;
+      // 1. Explicitly list all the fields you want to retrieve.
+      const fieldsToRetrieve = ['Id', 'Name', 'Title', 'Email', 'Phone', 'Birthdate'];
+      const contact = await conn.sobject('Contact').retrieve(singleContactId, { fields: fieldsToRetrieve }) as any;
+
+      // 2. Add the Birthdate and Email to the returned details string.
+      const contactDetails = `# Contact: ${contact.Name}\n\n**ID:** ${contact.Id}\n**Title:** ${contact.Title || 'N/A'}\n**Email:** ${contact.Email || 'N/A'}\n**Phone:** ${contact.Phone || 'N/A'}\n**Birthdate:** ${contact.Birthdate || 'N/A'}`;
+      
+      // --- END OF THE FIX ---
 
       return {
         contents: [{
