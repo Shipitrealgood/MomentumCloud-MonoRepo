@@ -139,7 +139,65 @@ server.registerResource(
   }
 );
 
-// Deleted find contact by name due to bug error in it
+server.registerTool(
+  "find-contact-by-name",
+  {
+    title: "Find Contact by Name",
+    description: "Searches for a specific contact by their full name to retrieve their unique Salesforce ID.",
+    inputSchema: {
+      fullName: z.string().describe("The full name of the contact to find (e.g., 'Tommy Tippee')."),
+    },
+    outputSchema: {
+      contacts: z.array(z.object({
+          id: z.string(),
+          name: z.string(),
+      }))
+    }
+  },
+  async ({ fullName }) => {
+    try {
+      const conn = getSalesforceConnection();
+      console.error(`--> TOOL: Searching for contact with name: '${fullName}'`);
+
+      // --- START OF THE DEFINITIVE FIX ---
+
+      // 1. Manually escape the input to prevent SOQL Injection.
+      const sanitizedFullName = fullName.replace(/'/g, "\\'");
+
+      // 2. Construct the query string with the sanitized input.
+      const soqlQuery = `SELECT Id, Name FROM Contact WHERE Name LIKE '%${sanitizedFullName}%' LIMIT 5`;
+      
+      // 3. Execute the query.
+      const result = await conn.query<{ Id: string; Name: string }>(soqlQuery);
+
+      // --- END OF THE DEFINITIVE FIX ---
+
+      if (result.totalSize === 0) {
+        return { content: [{ type: "text", text: `No contact found matching the name: ${fullName}` }] };
+      }
+
+      const foundContacts = result.records.map(r => ({ id: r.Id, name: r.Name }));
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Found ${result.totalSize} contact(s) matching '${fullName}':\n${JSON.stringify(foundContacts, null, 2)}`,
+          },
+        ],
+        structuredContent: {
+            contacts: foundContacts
+        }
+      };
+    } catch (error: any) {
+      console.error("--> Salesforce API Error:", error.message);
+      return {
+        content: [{ type: 'text', text: `Error finding Salesforce contact: ${error.message}` }],
+        isError: true
+      }
+    }
+  }
+);
 
 server.registerTool(
     "get_account_info",

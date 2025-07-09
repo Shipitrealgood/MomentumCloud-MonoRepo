@@ -160,9 +160,9 @@ export class AgentService {
             messages.push(...toolOutputs);
             
             const finalResponse = await this.openai.chat.completions.create({ model: 'gpt-4.1-mini', messages: messages });
-            console.log(`\nAI: ${finalResponse.choices[0].message.content}`);
+            console.log(`\nC.A.L.I.A.: ${finalResponse.choices[0].message.content}`);
         } else {
-            console.log(`\nAI: ${responseMessage.content}`);
+            console.log(`\nC.A.L.I.A.: ${responseMessage.content}`);
         }
     }
 
