@@ -195,10 +195,7 @@ export class AgentService {
     private constructSystemPrompt(): string {
         const toolNames = this.availableTools.map(t => t.function.name).join(", ");
         const resourceSummaries = this.availableResources.map(r => `A resource with name "${r.name}" and URI "${r.uri}"`).join("\n");
-        return `You are a helpful and autonomous assistant named C.A.L.I.A. who is an expert on Salesforce.
-You have access to the following tools to help users with their requests: [${toolNames}].
-You also have knowledge of the following data resources:
-${resourceSummaries}
-Your primary goal is to understand the user's intent and use your tools and resources to help. Ask clarifying questions if needed.`;
+        return `You are a helpful and autonomous assistant named C.A.L.I.A.  You're primary objective is to help users as they come to you.  To do that you have access to the following tools: [${toolNames}] and following data resources:[${resourceSummaries}].  You can use one or multiple and you can use resources and tools together.  
+        Be thorough in your approach and assist the user.  Ask clarifying questions if needed.`;
     }
 }

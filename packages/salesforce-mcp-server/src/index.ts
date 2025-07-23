@@ -207,6 +207,143 @@ server.registerTool(
 );
 
 server.registerTool(
+  "add_employee",
+  {
+    title: "Add New Employee",
+    description: "Creates a new employee record in Salesforce with the 'Employee' record type. Requires all key details to create the contact.",
+    // Define the expected inputs with clear descriptions for the AI.
+    inputSchema: {
+      firstName: z.string().describe("The employee's first name."),
+      lastName: z.string().describe("The employee's last name."),
+      accountName: z.string().describe("The name of the company (Account) the employee belongs to. This must be an existing account in Salesforce."),
+      hireDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format.").describe("The employee's hire date in YYYY-MM-DD format."),
+      employmentType: z.enum(["Full-Time", "Part-Time", "Contractor"]).describe("The employee's type of employment."),
+      employmentStatus: z.enum(["Active", "Onboarding", "Terminated"]).describe("The employee's current employment status."),
+      email: z.string().email("Please provide a valid business email address.").describe("The employee's primary business email address."),
+      relationship: z.enum(["Employee"]).describe("The relationship of the contact to the company. Must be 'Employee'."), //Dangerous to hard code this if we expand the tool to add dependents as well, but that should likely be it's own tool
+      personalEmail: z.string().email("Please provide a valid personal email address.").optional().describe("The employee's personal email address."),
+      phone: z.string().describe("The employee's primary phone number."),
+      birthdate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format.").describe("The employee's birthdate in YYYY-MM-DD format."),
+      eid: z.string().describe("The unique Employee ID (EID) for the new employee."),
+    },
+  },
+  async (args) => {
+    try {
+      const conn = getSalesforceConnection();
+      console.error(`--> TOOL: Attempting to add new employee: ${args.firstName} ${args.lastName}`);
+
+      // 1. Find the Account ID from the provided account name.
+      const accountQuery = await conn.query<{ Id: string }>(`SELECT Id FROM Account WHERE Name = '${args.accountName}' LIMIT 1`);
+      if (accountQuery.totalSize === 0) {
+        return { content: [{ type: "text", text: `Error: Could not find an account named '${args.accountName}'.` }], isError: true };
+      }
+      const accountId = accountQuery.records[0].Id;
+
+      // 2. Find the Record Type ID for your "Employee" contact type.
+      //    This is cached in a real app, but for simplicity, we query it here.
+      const recordTypeQuery = await conn.query<{ Id: string }>(`SELECT Id FROM RecordType WHERE SobjectType = 'Contact' AND Name = 'Employee' LIMIT 1`);
+      if (recordTypeQuery.totalSize === 0) {
+        return { content: [{ type: "text", text: `Error: Could not find the 'Employee' Contact Record Type in Salesforce.` }], isError: true };
+      }
+      const employeeRecordTypeId = recordTypeQuery.records[0].Id;
+      
+      // 3. Map the arguments to the Salesforce Contact object.
+      //    IMPORTANT: Adjust the custom field API names (like 'Hire_Date__c') to match your Salesforce org.
+      const newEmployeeData = {
+        FirstName: args.firstName,
+        LastName: args.lastName,
+        AccountId: accountId,
+        RecordTypeId: employeeRecordTypeId,
+        Hire_Date__c: args.hireDate,
+        Employment_Type__c: args.employmentType,
+        Employment_Status__c: args.employmentStatus,
+        Relationship__c: args.relationship,
+        Email: args.email,
+        Personal_Email__c: args.personalEmail,
+        Phone: args.phone,
+        Birthdate: args.birthdate,
+        EID__c: args.eid,
+      };
+
+      // 4. Create the new contact record.
+      const result = await conn.sobject('Contact').create(newEmployeeData);
+
+      if (result.success) {
+        return { content: [{ type: "text", text: `Successfully created new employee ${args.firstName} ${args.lastName} with ID: ${result.id}.` }] };
+      } else {
+        // Provide a detailed error if Salesforce rejects the creation.
+        const errorMessage = `Failed to create employee. Salesforce error: ${result.errors.join(', ')}`;
+        console.error("--> Salesforce API Error:", errorMessage);
+        return { content: [{ type: 'text', text: errorMessage }], isError: true };
+      }
+
+    } catch (error: any) {
+      console.error("--> Salesforce API Error:", error.message);
+      return {
+        content: [{ type: 'text', text: `An unexpected error occurred: ${error.message}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "search_accounts",
+  {
+    title: "Search Salesforce Accounts",
+    description: "Searches for Salesforce Accounts by name. Use this to find the exact name of an account when the user provides a partial or potentially misspelled name.",
+    inputSchema: {
+      accountName: z.string().describe("The full or partial name of the account to search for."),
+    },
+    outputSchema: {
+      accounts: z.array(z.object({
+          name: z.string(),
+      }))
+    }
+  },
+  async ({ accountName }) => {
+    try {
+      const conn = getSalesforceConnection();
+      console.error(`--> TOOL: Searching for accounts with name like: '${accountName}'`);
+      
+      const sanitizedAccountName = accountName.replace(/'/g, "\\'");
+      const soqlQuery = `SELECT Name FROM Account WHERE Name LIKE '%${sanitizedAccountName}%' LIMIT 5`;
+      
+      const result = await conn.query<{ Name: string }>(soqlQuery);
+
+      if (result.totalSize === 0) {
+        return { 
+            content: [{ type: "text", text: `No accounts found matching '${accountName}'.` }],
+            structuredContent: {
+                accounts: []
+            }
+        };
+      }
+
+      const foundAccounts = result.records.map(r => ({ name: r.Name }));
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Found ${result.totalSize} account(s) matching '${accountName}':\n${JSON.stringify(foundAccounts, null, 2)}`,
+          },
+        ],
+        structuredContent: {
+            accounts: foundAccounts
+        }
+      };
+    } catch (error: any) {
+      console.error("--> Salesforce API Error:", error.message);
+      return {
+        content: [{ type: 'text', text: `Error searching Salesforce accounts: ${error.message}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
     "get_account_info",
     {
         title: "Get Salesforce Account Info",
