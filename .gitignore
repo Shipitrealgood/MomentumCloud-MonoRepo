@@ -5,6 +5,8 @@
 /packages/orchestrator-host/dist
 /packages/salesforce-mcp-server/dist
 /packages/auth-mcp-server/dist
+/packages/ease-mcp-server/dist
+/packages/ease-mcp-server/node_modules
 
 # Logs
 *.log
