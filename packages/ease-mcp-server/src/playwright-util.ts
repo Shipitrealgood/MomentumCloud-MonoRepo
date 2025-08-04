@@ -1,5 +1,6 @@
 import { chromium, Page, Browser } from 'playwright';
-import { authenticator } from 'otplib';
+import { authenticator } from 'otplib';  // Stick with authenticator for simplicity
+import { HashAlgorithms } from '@otplib/core';  // Import HashAlgorithms from core package
 
 export async function loginToEase(
   email: string,
@@ -13,7 +14,6 @@ export async function loginToEase(
   try {
     await page.goto('https://ihhis.ease.com');
 
-    // Use console.error for logging
     console.error('Filling in login details...');
     await page.fill('#email', email);
     await page.fill('#password', password);
@@ -35,25 +35,36 @@ export async function loginToEase(
         await page.screenshot({ path: screenshotPath, fullPage: true });
         console.error(`Screenshot of the error saved to: ${screenshotPath}`);
     }
-    // Do not close the browser in case of an error during debug
     throw error;
   }
 }
 
 async function handle2FA(page: Page, secret: string) {
-  // Use console.error for logging
   console.error('On 2FA page, attempting to enter code...');
-  
   const tokenInputSelector = '#mfaCode';
   const submitButtonSelector = 'button:has-text("Verify & Log In")';
   
   await page.waitForSelector(tokenInputSelector, { timeout: 15000 });
-  const token = authenticator.generate(secret);
   
-  console.error(`Generated 2FA Code: ${token}`);
-  await page.fill(tokenInputSelector, token);
-  await page.click(submitButtonSelector);
+  // Clean the secret (remove spaces, ensure uppercase - base32 is case-insensitive but consistent)
+  const cleanedSecret = secret.replace(/\s/g, '').toUpperCase();
+  
+  // Set TOTP options explicitly (start with defaults, but we can tweak)
+  authenticator.options = {
+    digits: 6,          // Standard, but confirm if site uses 8 or other
+    step: 30,           // Time window in seconds
+    algorithm: HashAlgorithms.SHA1,  // Try this first; swap to HashAlgorithms.SHA512 if tokens still don't match after verification
+    // window: 1,       // Optional: tolerance for clock skew (1 means ±30s); uncomment if needed
+  };
 
-  console.error('Login submitted. Pausing to inspect the dashboard...');
-  await page.pause();
+  const generationTime = new Date().toISOString();  // Log exact time for comparison
+  const token = authenticator.generate(cleanedSecret);
+  console.error(`Generated 2FA Code: ${token} at ${generationTime} using algorithm: ${authenticator.options.algorithm}`);
+
+  await page.fill(tokenInputSelector, token);
+  // Optional small delay if token is on the edge of expiration
+  // await page.waitForTimeout(1000);
+  await page.click('button:has-text("Verify & Log In")');
+
+  console.error('Login submitted successfully.');
 }
