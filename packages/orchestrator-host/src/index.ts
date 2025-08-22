@@ -1,14 +1,18 @@
-// orchestrator-host/index.ts
+// packages/orchestrator-host/index.ts
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { ElicitRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import path from "path";
+import { fileURLToPath } from 'url'; // <-- ADD THIS IMPORT
 import readline from "readline/promises";
 import 'dotenv/config';
 import crypto from 'crypto';
 import { readTokens, saveTokens, TokenData } from "./token-store.js";
 import { AgentService } from "./agentService.js";
+
+// FIXED: Add this code block to correctly get the directory name in ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const {
     SALESFORCE_CLIENT_ID,
@@ -25,7 +29,6 @@ function sha256(buffer: string) {
     return crypto.createHash('sha256').update(buffer).digest();
 }
 
-
 class Orchestrator {
     private salesforceClient!: Client;
     private sfAccessToken!: string;
@@ -38,58 +41,38 @@ class Orchestrator {
         }
         
         await this.initializeTokens();
-
         if (!this.sfAccessToken || !this.sfInstanceUrl) {
             console.error("Authentication failed. Exiting.");
             return;
         }
 
-        // Set up the connection to the Salesforce MCP server
         await this.startSalesforceServer();
-        
-        // **This is now correctly placed after the client has been fully connected.**
-        this.salesforceClient.setRequestHandler(ElicitRequestSchema, async (request) => {
-            const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-            console.log(`\n🤔 SERVER REQUEST: ${request.params.message}`);
-            const answer = await rl.question("Confirm? (yes/no): ");
-            rl.close();
-
-            const confirmed = answer.toLowerCase().startsWith('y');
-            
-            return {
-                action: "accept",
-                content: {
-                    confirm: confirmed,
-                },
-            };
-        });
-        
         const agent = new AgentService(this.salesforceClient);
         await agent.initialize();
         await agent.startChatLoop();
-
         console.log("Chat session ended. Shutting down orchestrator.");
     }
 
     private async initializeTokens() {
-        let tokens = await readTokens();
+        let tokens = await readTokens('salesforce');
         if (tokens) {
-            console.log("Found stored tokens. Attempting to refresh...");
+            console.log("Found stored Salesforce tokens. Attempting to refresh...");
             tokens = await this.refreshAccessToken(tokens.refreshToken);
         }
 
         if (!tokens) {
-            console.log("No valid tokens found. Starting manual login process.");
+            console.log("No valid Salesforce tokens found. Starting manual login process.");
             tokens = await this.performManualLogin();
         }
 
         if (tokens) {
             this.sfAccessToken = tokens.accessToken;
             this.sfInstanceUrl = tokens.instanceUrl;
-            console.log("\n--- Authentication successful! Ready to make API calls. ---");
+            console.log("\n--- Salesforce Authentication successful! Ready to make API calls. ---");
         }
     }
     
+    // ... (refreshAccessToken and performManualLogin methods are correct and unchanged)
     private async refreshAccessToken(refreshToken: string): Promise<TokenData | null> {
         console.log("--> Requesting new access token using refresh token...");
         const tokenUrl = `${SALESFORCE_LOGIN_URL!}/services/oauth2/token`;
@@ -98,6 +81,7 @@ class Orchestrator {
         params.append("refresh_token", refreshToken);
         params.append("client_id", SALESFORCE_CLIENT_ID!);
         params.append("client_secret", SALESFORCE_CLIENT_SECRET!);
+        
         try {
             const response = await fetch(tokenUrl, { method: 'POST', body: params });
             const data = await response.json();
@@ -112,7 +96,7 @@ class Orchestrator {
                 refreshToken: data.refresh_token || refreshToken,
                 instanceUrl: data.instance_url,
             };
-            await saveTokens(newTokens);
+            await saveTokens('salesforce', newTokens);
             return newTokens;
         } catch (error) {
             console.error("Error during token refresh:", error);
@@ -132,9 +116,11 @@ class Orchestrator {
         authUrl.searchParams.set("redirect_uri", SALESFORCE_CALLBACK_URL!);
         authUrl.searchParams.set("code_challenge", code_challenge);
         authUrl.searchParams.set("code_challenge_method", "S256");
+        
         console.log("\nACTION REQUIRED:");
         console.log("1. Manually copy and paste the following URL into your browser:\n");
         console.log(authUrl.href);
+        
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         const redirectUrlString = await rl.question("\n2. Paste the entire redirected URL here: ");
         rl.close();
@@ -160,8 +146,10 @@ class Orchestrator {
         params.append("client_secret", SALESFORCE_CLIENT_SECRET!);
         params.append("redirect_uri", SALESFORCE_CALLBACK_URL!);
         params.append("code_verifier", code_verifier);
+        
         const response = await fetch(tokenUrl, { method: 'POST', body: params });
         const data = await response.json();
+        
         if (!response.ok) {
             console.error("Failed to get access token:", data.error_description);
             return null;
@@ -172,29 +160,20 @@ class Orchestrator {
             refreshToken: data.refresh_token,
             instanceUrl: data.instance_url,
         };
-        await saveTokens(tokens);
+        await saveTokens('salesforce', tokens);
         return tokens;
     }
 
     async startSalesforceServer() {
-        const salesforceServerPath = path.resolve(process.cwd(), "packages/salesforce-mcp-server/dist/index.js");
+        // FIXED: Use a robust path resolution method that works correctly from the package directory.
+        // This navigates from the current file's location up to the monorepo root, then down to the target package.
+        const salesforceServerPath = path.resolve(__dirname, "../../salesforce-mcp-server/dist/index.js");
+        
         const transport = new StdioClientTransport({
             command: "node",
             args: [salesforceServerPath, this.sfAccessToken!, this.sfInstanceUrl!],
         });
-        
-        // --- START OF THE FIX ---
-        // Create the client instance here, once, and declare its capabilities.
-        this.salesforceClient = new Client(
-            { name: "salesforce-client-in-orchestrator", version: "1.0.0" },
-            { 
-                capabilities: {
-                    elicitation: {} // This tells the server "I can handle elicitation requests"
-                }
-            }
-        );
-        // --- END OF THE FIX ---
-
+        this.salesforceClient = new Client({ name: "salesforce-client-in-orchestrator", version: "1.0.0" });
         await this.salesforceClient.connect(transport);
         console.log("\n--> Successfully connected to Salesforce MCP Server.");
     }

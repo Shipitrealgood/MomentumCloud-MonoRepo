@@ -40,12 +40,33 @@ const salesforceAuthProvider = new ProxyOAuthServerProvider({
         return undefined;
     },
     verifyAccessToken: async (token: string): Promise<AuthInfo> => {
-        console.log(`Verifying token: ${token.substring(0, 10)}...`);
-        return {
-            token,
-            clientId: thisMcpClient.client_id,
-            scopes: ["api", "refresh_token"],
-        };
+        console.log(`Verifying Salesforce token by calling UserInfo endpoint...`);
+        const userInfoUrl = `${SALESFORCE_LOGIN_URL}/services/oauth2/userinfo`;
+
+        try {
+            const response = await fetch(userInfoUrl, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                console.error(`Salesforce token validation failed: ${response.status} ${errorBody}`);
+                throw new Error('Invalid or expired Salesforce access token.');
+            }
+
+            // The token is valid if the request was successful.
+            // You could optionally parse the response here to get user details if needed.
+            // const userInfo = await response.json();
+
+            return {
+                token,
+                clientId: thisMcpClient.client_id,
+                scopes: ["api", "refresh_token"],
+            };
+        } catch (error: any) {
+            console.error(`Error during Salesforce token verification: ${error.message}`);
+            throw new Error('Failed to verify Salesforce access token.');
+        }
     },
 });
 
