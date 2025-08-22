@@ -1,16 +1,16 @@
-// orchestrator-host/src/agentService.ts
+// packages/orchestrator-host/src/agentService.ts
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { Resource } from "@modelcontextprotocol/sdk/types.js";
+import { Resource, ContentBlock } from "@modelcontextprotocol/sdk/types.js";
 import OpenAI from 'openai';
 import { ChatCompletionTool, ChatCompletionMessageToolCall } from "openai/resources/chat/completions.mjs";
 import readline from "readline/promises";
 
+// --- (TextContentBlock interface and isTextContentBlock function remain unchanged) ---
 interface TextContentBlock {
     type: 'text';
     text: string;
 }
-
 function isTextContentBlock(block: any): block is TextContentBlock {
     return block && block.type === 'text' && typeof block.text === 'string';
 }
@@ -20,11 +20,10 @@ export class AgentService {
     private openai: OpenAI;
     private availableTools: ChatCompletionTool[] = [];
     private availableResources: Resource[] = [];
-    // Define unique names for our virtual tools
-    private readonly GET_CONTACT_DETAILS_TOOL_NAME = "get_contact_details";
-    private readonly GET_ACCOUNT_DETAILS_TOOL_NAME = "get_account_details";
-
-    constructor(private salesforceClient: Client) {
+    private readonly READ_RESOURCE_TOOL_NAME = "read_resource_details";
+    
+    // UPDATED: Constructor to accept the boxClient. If you haven't added it yet, this is fine.
+    constructor(private salesforceClient: Client, private boxClient?: Client) {
         if (!process.env.OPENAI_API_KEY) {
             throw new Error("OPENAI_API_KEY is not set in the environment.");
         }
@@ -35,7 +34,6 @@ export class AgentService {
         console.log("--> AgentService: Discovering server capabilities...");
         const toolResult = await this.salesforceClient.listTools();
         
-        // Map the real tools from the server
         this.availableTools = toolResult.tools.map(t => ({
             type: 'function',
             function: {
@@ -45,48 +43,31 @@ export class AgentService {
             },
         }));
 
-        // --- START OF THE DEFINITIVE FIX ---
-        // Add two specific "virtual" tools for reading resources.
-        // These tools don't exist on the server, but we will handle them in processAgentTurn.
-
         this.availableTools.push({
             type: 'function',
             function: {
-                name: this.GET_CONTACT_DETAILS_TOOL_NAME,
-                description: "Gets all details for a single contact using their unique Salesforce ID.",
+                name: this.READ_RESOURCE_TOOL_NAME,
+                description: "Reads the full details of a specific resource using its URI. Use this to get information like phone numbers, emails, or other details for a resource you have identified.",
                 parameters: {
                     type: 'object',
                     properties: {
-                        contactId: {
+                        uri: {
                             type: 'string',
-                            description: 'The 15 or 18-character Salesforce ID of the contact.'
+                            description: 'The full URI of the resource to read (e.g., "salesforce://accounts/SomeAccountName").'
                         }
                     },
-                    required: ['contactId']
+                    required: ['uri']
                 }
             }
         });
 
-        this.availableTools.push({
-            type: 'function',
-            function: {
-                name: this.GET_ACCOUNT_DETAILS_TOOL_NAME,
-                description: "Gets all details for a single Salesforce Account using its name.",
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        accountName: {
-                            type: 'string',
-                            description: 'The exact name of the Salesforce account.'
-                        }
-                    },
-                    required: ['accountName']
-                }
-            }
-        });
-        // --- END OF THE DEFINITIVE FIX ---
+        // FIXED: Safely map tool names by checking the type first.
+        const toolNames = this.availableTools
+            .filter(t => t.type === 'function')
+            .map(t => t.function.name)
+            .join(", ");
 
-        console.log("--> AgentService: Discovered Tools:", this.availableTools.map(t => t.function.name).join(", "));
+        console.log("--> AgentService: Discovered Tools:", toolNames);
 
         const resourceResult = await this.salesforceClient.listResources();
         this.availableResources = resourceResult.resources;
@@ -113,7 +94,7 @@ export class AgentService {
     
     private async processAgentTurn(messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]) {
         const response = await this.openai.chat.completions.create({
-            model: 'gpt-4.1-mini',
+            model: 'gpt-4-turbo', // Using a recommended model for tool use
             messages: messages,
             tools: this.availableTools,
             tool_choice: 'auto',
@@ -125,54 +106,53 @@ export class AgentService {
 
         if (toolCalls) {
             console.log(`🤖 LLM wants to use ${toolCalls.length} tool(s)...`);
-            const toolOutputs = await Promise.all(toolCalls.map(async (toolCall: ChatCompletionMessageToolCall) => {
+            const toolOutputs = await Promise.all(toolCalls.map(async (toolCall) => {
+                
+                // FIXED: Check if the toolCall is of type 'function' before accessing its properties.
+                if (toolCall.type !== 'function') {
+                    // In the future, you might handle other tool types here.
+                    // For now, we'll skip any non-function tool calls.
+                    return {
+                        tool_call_id: toolCall.id,
+                        role: 'tool' as const,
+                        name: 'unknown_tool',
+                        content: 'Error: Tool call was not of type "function".',
+                    };
+                }
+
                 const functionName = toolCall.function.name;
                 const functionArgs = JSON.parse(toolCall.function.arguments);
                 
                 let functionResponse: string = '{}';
 
-                try {
-                    // --- START OF THE FIX ---
-                    // Helper function to safely extract text from a resource read result
-                    const getResourceText = async (uri: string): Promise<string> => {
+                if (functionName === this.READ_RESOURCE_TOOL_NAME) {
+                    const uri = functionArgs?.uri;
+                    if (typeof uri === 'string') {
+                        console.log(`  - Reading resource: ${uri}`);
                         const readResult = await this.salesforceClient.readResource({ uri });
-                        const firstContent = readResult?.contents?.[0];
-                        if (isTextContentBlock(firstContent)) {
-                            return firstContent.text;
-                        }
-                        return `Error: Could not find text content for resource ${uri}`;
-                    };
-
-                    if (functionName === this.GET_CONTACT_DETAILS_TOOL_NAME) {
-                        const contactId = functionArgs?.contactId;
-                        const uri = `salesforce://contacts/${contactId}`;
-                        console.log(`  - Reading contact resource: ${uri}`);
-                        functionResponse = await getResourceText(uri);
-
-                    } else if (functionName === this.GET_ACCOUNT_DETAILS_TOOL_NAME) {
-                        const accountName = functionArgs?.accountName;
-                        const uri = `salesforce://accounts/${encodeURIComponent(accountName)}`;
-                        console.log(`  - Reading account resource: ${uri}`);
-                        functionResponse = await getResourceText(uri);
-
-                    // --- END OF THE FIX ---
-                    } else {
-                        // Handle all other "real" tools from the server as before
-                        console.log(`  - Calling remote tool: ${functionName} with args:`, functionArgs);
-                        const toolResult = await this.salesforceClient.callTool({
-                            name: functionName,
-                            arguments: functionArgs,
-                        });
-                        if (toolResult && Array.isArray(toolResult.content)) {
-                            const firstContent = toolResult.content[0];
+                        
+                        if (readResult && Array.isArray(readResult.contents)) {
+                            const firstContent = readResult.contents[0];
                             if (isTextContentBlock(firstContent)) {
                                 functionResponse = firstContent.text;
                             }
                         }
+                    } else {
+                        functionResponse = 'Error: URI was not provided for read_resource_details.';
+                        console.error(functionResponse);
                     }
-                } catch (error: any) {
-                    console.error(`--> Error executing tool '${functionName}':`, error.message);
-                    functionResponse = `Error: ${error.message}`;
+                } else {
+                    console.log(`  - Calling remote tool: ${functionName} with args:`, functionArgs);
+                    const toolResult = await this.salesforceClient.callTool({
+                        name: functionName,
+                        arguments: functionArgs,
+                    });
+                    if (toolResult && Array.isArray(toolResult.content)) {
+                        const firstContent = toolResult.content[0];
+                        if (isTextContentBlock(firstContent)) {
+                            functionResponse = firstContent.text;
+                        }
+                    }
                 }
 
                 return {
@@ -185,17 +165,27 @@ export class AgentService {
 
             messages.push(...toolOutputs);
             
-            const finalResponse = await this.openai.chat.completions.create({ model: 'gpt-4.1-mini', messages: messages });
-            console.log(`\nC.A.L.I.A.: ${finalResponse.choices[0].message.content}`);
+            const finalResponse = await this.openai.chat.completions.create({ model: 'gpt-4-turbo', messages: messages });
+            console.log(`\nAI: ${finalResponse.choices[0].message.content}`);
         } else {
-            console.log(`\nC.A.L.I.A.: ${responseMessage.content}`);
+            console.log(`\nAI: ${responseMessage.content}`);
         }
     }
 
     private constructSystemPrompt(): string {
-        const toolNames = this.availableTools.map(t => t.function.name).join(", ");
+        // FIXED: Safely map tool names by checking the type first.
+        const toolNames = this.availableTools
+            .filter(t => t.type === 'function')
+            .map(t => t.function.name)
+            .join(", ");
+            
         const resourceSummaries = this.availableResources.map(r => `A resource with name "${r.name}" and URI "${r.uri}"`).join("\n");
-        return `You are a helpful and autonomous assistant named C.A.L.I.A.  You're primary objective is to help users as they come to you.  To do that you have access to the following tools: [${toolNames}] and following data resources:[${resourceSummaries}].  You can use one or multiple and you can use resources and tools together.  
-        Be thorough in your approach and assist the user.  Ask clarifying questions if needed.`;
+        return `You are a helpful and autonomous assistant named C.A.L.I.A. who is an expert on Salesforce.
+        You have access to the following tools to help users with their requests: [${toolNames}].
+        You also have knowledge of the following data resources. To get the full details of any resource, use the '${this.READ_RESOURCE_TOOL_NAME}' tool with the resource's URI.
+        Available resource examples:
+        ${resourceSummaries}
+        Your primary goal is to understand the user's intent and use your tools and resources to help.
+        Ask clarifying questions if needed.`;
     }
 }

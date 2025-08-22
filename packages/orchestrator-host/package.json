@@ -4,17 +4,19 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "start": "dotenv -e ../../.env -- node dist/index.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.15.0",
     "dotenv": "^17.1.0",
-    "express": "^5.0.1",
     "keytar": "^7.9.0",
-    "openai": "^5.8.3",
-    "pkce-challenge": "^5.0.0"
+    "openai": "^5.8.3"
   },
   "devDependencies": {
-    "@types/express": "^5.0.0"
+    "@types/keytar": "^4.0.5",
+    "@types/node": "^20.9.0",
+    "dotenv-cli": "^10.0.0",
+    "typescript": "^5.2.2"
   }
 }
