@@ -59,7 +59,7 @@ async function handle2FA(page: Page, secret: string) {
 
   const generationTime = new Date().toISOString();  // Log exact time for comparison
   const token = authenticator.generate(cleanedSecret);
-  console.error(`Generated 2FA Code: ${token} at ${generationTime} using algorithm: ${authenticator.options.algorithm}`);
+  console.error("Generated OTP for login (redacted).");
 
   await page.fill(tokenInputSelector, token);
   // Optional small delay if token is on the edge of expiration
