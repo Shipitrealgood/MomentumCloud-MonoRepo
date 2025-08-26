@@ -16,9 +16,6 @@ async function main() {
 
         // Create the agent service with the connected clients
         const agent = new AgentService(salesforceClient /*, boxClient */); // <-- Future step
-        
-        // Initialize the agent (discover tools, etc.)
-        await agent.initialize();
 
         // Start the main application loop
         await agent.startChatLoop();
