@@ -1,12 +1,10 @@
 // packages/orchestrator-host/src/agentService.ts
 
+import { GoogleGenAI, mcpToTool, Content } from "@google/genai";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { Resource, ContentBlock } from "@modelcontextprotocol/sdk/types.js";
-import OpenAI from 'openai';
-import { ChatCompletionTool, ChatCompletionMessageToolCall } from "openai/resources/chat/completions.mjs";
 import readline from "readline/promises";
 
-// --- (TextContentBlock interface and isTextContentBlock function remain unchanged) ---
+// This helper interface remains the same
 interface TextContentBlock {
     type: 'text';
     text: string;
@@ -17,175 +15,97 @@ function isTextContentBlock(block: any): block is TextContentBlock {
 
 
 export class AgentService {
-    private openai: OpenAI;
-    private availableTools: ChatCompletionTool[] = [];
-    private availableResources: Resource[] = [];
-    private readonly READ_RESOURCE_TOOL_NAME = "read_resource_details";
-    
-    // UPDATED: Constructor to accept the boxClient. If you haven't added it yet, this is fine.
-    constructor(private salesforceClient: Client, private boxClient?: Client) {
-        if (!process.env.OPENAI_API_KEY) {
-            throw new Error("OPENAI_API_KEY is not set in the environment.");
+    private ai: GoogleGenAI;
+    private mcpClients: Client[] = [];
+
+    constructor(...clients: Client[]) {
+        this.mcpClients = clients.filter(c => c);
+
+        const project = process.env.GOOGLE_CLOUD_PROJECT;
+        const location = process.env.GOOGLE_CLOUD_LOCATION;
+
+        if (!process.env.GOOGLE_GENAI_USE_VERTEXAI || !project || !location) {
+            throw new Error("Vertex AI environment variables (GOOGLE_GENAI_USE_VERTEXAI, GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION) must be set.");
         }
-        this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    }
-
-    public async initialize() {
-        console.log("--> AgentService: Discovering server capabilities...");
-        const toolResult = await this.salesforceClient.listTools();
         
-        this.availableTools = toolResult.tools.map(t => ({
-            type: 'function',
-            function: {
-                name: t.name,
-                description: t.description,
-                parameters: t.inputSchema,
-            },
-        }));
-
-        this.availableTools.push({
-            type: 'function',
-            function: {
-                name: this.READ_RESOURCE_TOOL_NAME,
-                description: "Reads the full details of a specific resource using its URI. Use this to get information like phone numbers, emails, or other details for a resource you have identified.",
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        uri: {
-                            type: 'string',
-                            description: 'The full URI of the resource to read (e.g., "salesforce://accounts/SomeAccountName").'
-                        }
-                    },
-                    required: ['uri']
-                }
-            }
+        this.ai = new GoogleGenAI({
+            vertexai: true,
+            project: project,
+            location: location,
         });
-
-        // FIXED: Safely map tool names by checking the type first.
-        const toolNames = this.availableTools
-            .filter(t => t.type === 'function')
-            .map(t => t.function.name)
-            .join(", ");
-
-        console.log("--> AgentService: Discovered Tools:", toolNames);
-
-        const resourceResult = await this.salesforceClient.listResources();
-        this.availableResources = resourceResult.resources;
-        console.log("--> AgentService: Discovered Resources:", this.availableResources.map(r => r.name).join(", "));
     }
 
     public async startChatLoop() {
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-        console.log("\n💬 C.A.L.I.A. (powered by OpenAI) is ready. Type 'quit' to exit.");
-        const history: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [{
-            role: 'system',
-            content: this.constructSystemPrompt()
-        }];
+        console.log("\n💬 C.A.L.I.A. (powered by Gemini on Vertex AI) is ready. Type 'quit' to exit.");
+
+        const mcpTools = this.mcpClients.map(client => mcpToTool(client));
+
+        const history: Content[] = [
+            { role: 'user', parts: [{ text: this.constructSystemPrompt() }] },
+            { role: 'model', parts: [{ text: "Understood. I am ready to assist with Salesforce tasks. How can I help you today?" }] }
+        ];
+
         while (true) {
             const userInput = await rl.question("You: ");
             if (userInput.toLowerCase() === 'quit') break;
 
-            history.push({ role: 'user', content: userInput });
+            history.push({ role: 'user', parts: [{ text: userInput }] });
+
+            console.log(`🤖 Thinking...`);
             
-            await this.processAgentTurn(history);
+            const result = await this.ai.models.generateContent({
+                model: 'gemini-2.5-pro',
+                contents: history,
+                config: {
+                    tools: mcpTools,
+                }
+            });
+
+            const response = result;
+            const modelResponseContent = response.candidates?.[0]?.content;
+            
+            if (modelResponseContent) {
+                history.push(modelResponseContent);
+                
+                // FIXED: Added a nested check to ensure the 'parts' array exists and is not empty
+                // before trying to access its contents. This resolves the final TypeScript error.
+                if (modelResponseContent.parts && modelResponseContent.parts.length > 0) {
+                    const responseText = modelResponseContent.parts[0]?.text;
+                    if (responseText) {
+                        console.log(`\nAI: ${responseText}`);
+                    } else {
+                        // This case handles when the model returns parts that are not text (e.g., just a function call).
+                        console.log(`\nAI: (Completed an action)`);
+                    }
+                } else {
+                     console.log(`\nAI: (Received a response with no content parts)`);
+                }
+
+            } else {
+                console.log(`\nAI: (No response content)`);
+            }
         }
         rl.close();
     }
     
-    private async processAgentTurn(messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]) {
-        const response = await this.openai.chat.completions.create({
-            model: 'gpt-4-turbo', // Using a recommended model for tool use
-            messages: messages,
-            tools: this.availableTools,
-            tool_choice: 'auto',
-        });
-        const responseMessage = response.choices[0].message;
-        messages.push(responseMessage);
-
-        const toolCalls = responseMessage.tool_calls;
-
-        if (toolCalls) {
-            console.log(`🤖 LLM wants to use ${toolCalls.length} tool(s)...`);
-            const toolOutputs = await Promise.all(toolCalls.map(async (toolCall) => {
-                
-                // FIXED: Check if the toolCall is of type 'function' before accessing its properties.
-                if (toolCall.type !== 'function') {
-                    // In the future, you might handle other tool types here.
-                    // For now, we'll skip any non-function tool calls.
-                    return {
-                        tool_call_id: toolCall.id,
-                        role: 'tool' as const,
-                        name: 'unknown_tool',
-                        content: 'Error: Tool call was not of type "function".',
-                    };
-                }
-
-                const functionName = toolCall.function.name;
-                const functionArgs = JSON.parse(toolCall.function.arguments);
-                
-                let functionResponse: string = '{}';
-
-                if (functionName === this.READ_RESOURCE_TOOL_NAME) {
-                    const uri = functionArgs?.uri;
-                    if (typeof uri === 'string') {
-                        console.log(`  - Reading resource: ${uri}`);
-                        const readResult = await this.salesforceClient.readResource({ uri });
-                        
-                        if (readResult && Array.isArray(readResult.contents)) {
-                            const firstContent = readResult.contents[0];
-                            if (isTextContentBlock(firstContent)) {
-                                functionResponse = firstContent.text;
-                            }
-                        }
-                    } else {
-                        functionResponse = 'Error: URI was not provided for read_resource_details.';
-                        console.error(functionResponse);
-                    }
-                } else {
-                    console.log(`  - Calling remote tool: ${functionName} with args:`, functionArgs);
-                    const toolResult = await this.salesforceClient.callTool({
-                        name: functionName,
-                        arguments: functionArgs,
-                    });
-                    if (toolResult && Array.isArray(toolResult.content)) {
-                        const firstContent = toolResult.content[0];
-                        if (isTextContentBlock(firstContent)) {
-                            functionResponse = firstContent.text;
-                        }
-                    }
-                }
-
-                return {
-                    tool_call_id: toolCall.id,
-                    role: 'tool' as const,
-                    name: functionName,
-                    content: functionResponse,
-                };
-            }));
-
-            messages.push(...toolOutputs);
-            
-            const finalResponse = await this.openai.chat.completions.create({ model: 'gpt-4-turbo', messages: messages });
-            console.log(`\nAI: ${finalResponse.choices[0].message.content}`);
-        } else {
-            console.log(`\nAI: ${responseMessage.content}`);
-        }
-    }
-
     private constructSystemPrompt(): string {
-        // FIXED: Safely map tool names by checking the type first.
-        const toolNames = this.availableTools
-            .filter(t => t.type === 'function')
-            .map(t => t.function.name)
-            .join(", ");
-            
-        const resourceSummaries = this.availableResources.map(r => `A resource with name "${r.name}" and URI "${r.uri}"`).join("\n");
-        return `You are a helpful and autonomous assistant named C.A.L.I.A. who is an expert on Salesforce.
-        You have access to the following tools to help users with their requests: [${toolNames}].
-        You also have knowledge of the following data resources. To get the full details of any resource, use the '${this.READ_RESOURCE_TOOL_NAME}' tool with the resource's URI.
-        Available resource examples:
-        ${resourceSummaries}
-        Your primary goal is to understand the user's intent and use your tools and resources to help.
-        Ask clarifying questions if needed.`;
+        return `
+# **Persona**
+You are C.A.L.I.A., a world-class AI assistant, communication, and Tool calling specialist. Your persona is professional, proactive, and exceptionally helpful. You are a partner to the user, not just a tool.
+
+# **Core Mission**
+Your primary objective is to ensure the user achieves their goal.  Do not simply report problems; actively seek to solve them. Your goal is to provide a complete solution.
+
+# **Guiding Principles**
+1.  **Analyze and Understand:** Before acting, always ensure you fully understand the user's request. If it's ambiguous (e.g., "find John's account"), ask clarifying questions to get the specifics you need to use your tools effectively.  If you can use a tool with partial data you can and should, but you want to ensure you understand the users intent, and who or what they are aiming to accomplish.
+2.  **Proactive Problem-Solving:** Your most important task is to understand the users intent, ensure you have the data and understanding you need to fulfill it, and then use the tools within your aresenal to achieve for the user.
+    * You are able and encouraged to use multiple tools together to achieve your goal. [Example add employee lacks the date of birth, another tool might have the ability to get the date of birth, you should ask the user if you can use the other tool]
+    * If a search tool fails to find an exact match, use other tools to find close matches and confirm with the user before proceeding.
+    .
+    * **If a tool reveals that data is missing or incomplete (e.g., an account has no phone number), consider if this as a problem to be solved by yourself or the user.** State the issue clearly to the user and offer to fix it by using an appropriate update or creation tool if you have one.
+3.  **Tool-First Approach:** Always rely on your available tools to get information or make changes. Do not make up information or assume data exists. If you don't have a tool to perform an action, clearly state that the capability is not available.
+4.  **Communicate Clearly:** Keep the user informed of your actions and the results of your tool calls. Present complex information in a clear, easy-to-read format.
+`;
     }
 }

@@ -8,6 +8,7 @@
     "start": "dotenv -e ../../.env -- node dist/index.js"
   },
   "dependencies": {
+    "@google/genai": "^0.15.0",
     "@modelcontextprotocol/sdk": "1.15.0",
     "dotenv": "^17.1.0",
     "keytar": "^7.9.0",
