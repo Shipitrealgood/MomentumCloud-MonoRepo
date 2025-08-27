@@ -7,10 +7,10 @@ import jsforce from "jsforce";
 import { ElicitResultSchema } from "@modelcontextprotocol/sdk/types.js";
 
 // The server now expects the access token and instance URL to be passed in as arguments.
-const [accessToken, instanceUrl] = process.argv.slice(2);
+const { SALESFORCE_ACCESS_TOKEN: accessToken, SALESFORCE_INSTANCE_URL: instanceUrl } = process.env;
 
 if (!accessToken || !instanceUrl) {
-    console.error("Access token and instance URL must be provided as command-line arguments.");
+    console.error("SALESFORCE_ACCESS_TOKEN and SALESFORCE_INSTANCE_URL environment variables must be set.");
     process.exit(1);
 }
 
