@@ -67,7 +67,7 @@ export class SalesforceClientManager {
     }
     
     private async startServer() {
-    const serverPath = path.resolve(__dirname, "../../../salesforce-mcp-server/dist/index.js");
+    const serverPath = path.resolve(__dirname, "../../../mcp-servers/salesforce-mcp-server/dist/index.js");
 
     const transport = new StdioClientTransport({
         command: "node",
