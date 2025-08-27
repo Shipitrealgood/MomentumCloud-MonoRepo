@@ -27,7 +27,6 @@ lerna-debug.log*
 token-storage.json
 
 
-
 # ... other entries
 **/dist
 **/node_modules

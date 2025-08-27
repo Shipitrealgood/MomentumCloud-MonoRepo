@@ -1,0 +1,205 @@
+// packages/crm-app/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================================
+// Account & Contact Models
+// ===================================
+
+enum AccountType {
+  BUSINESS
+  HOUSEHOLD
+}
+
+model Account {
+  id        String      @id @default(cuid())
+  name      String      @unique // e.g., "Acme Inc." or "The Smith Household"
+  type      AccountType
+  industry  String?
+  phone     String?
+  website   String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  // --- Relations ---
+  contacts  Contact[]
+  policies  Policy[]
+}
+
+enum ContactType {
+  EMPLOYEE   // An employee of a BUSINESS account
+  INDIVIDUAL // A member of a HOUSEHOLD account, or a dependent of an EMPLOYEE
+  PARTNER    // A non-employee business partner
+}
+
+model Contact {
+  id              String      @id @default(cuid())
+  recordType      ContactType
+  firstName       String
+  lastName        String
+  email           String?      @unique
+  personalEmail   String?
+  phone           String?
+  birthdate       DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // --- Relations ---
+  // The Account this contact belongs to
+  account         Account     @relation(fields: [accountId], references: [id])
+  accountId       String
+
+  // Profile extensions for polymorphism
+  employeeProfile   EmployeeProfile?
+  individualProfile IndividualProfile?
+
+  // Self-relation to link dependents to a primary contact (e.g., employee or head of household)
+  dependents        Contact[]   @relation("PrimaryToDependent")
+  primaryContact    Contact?    @relation("PrimaryToDependent", fields: [primaryContactId], references: [id])
+  primaryContactId  String?     // This foreign key stores the ID of the primary contact
+
+  // Join table for many-to-many relationship with Policy
+  enrollments     Enrollment[]
+}
+
+
+// ===================================
+// Profile Extension Models
+// ===================================
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACTOR
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  TERMINATED
+  ON_LEAVE
+}
+
+enum CompensationType {
+  SALARY
+  HOURLY
+}
+
+// Employee-specific fields
+model EmployeeProfile {
+  id                 String           @id @default(cuid())
+  hireDate           DateTime
+  employmentType     EmploymentType
+  employmentStatus   EmploymentStatus
+  terminationDate    DateTime?
+  eid                String?           @unique // Employee ID
+  title              String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  // Compensation detail
+  compensationType   CompensationType
+  compensationAmount Decimal // Using Decimal for financial accuracy
+
+  // One-to-one link back to the main Contact record
+  contact            Contact          @relation(fields: [contactId], references: [id])
+  contactId          String           @unique
+}
+
+
+enum RelationshipToAccountPrimary {
+  PRIMARY // The Head of Household or primary contact for this group
+  SPOUSE
+  CHILD
+  DOMESTIC_PARTNER
+  OTHER
+}
+
+// Individual-specific fields (for dependents or household members)
+model IndividualProfile {
+  id           String                     @id @default(cuid())
+  relationship RelationshipToAccountPrimary // The LABEL describing the relationship
+
+  // One-to-one link back to the main Contact record
+  contact      Contact                    @relation(fields: [contactId], references: [id])
+  contactId    String                     @unique
+}
+
+
+// ===================================
+// Policy & Insurance Models
+// ===================================
+
+enum FundingType {
+  SELF_FUNDED
+  LEVEL_FUNDED
+  TRADITIONAL
+}
+
+enum PolicyStatus {
+  ACTIVE
+  PENDING
+  TERMINATED
+  CANCELED
+}
+
+model Policy {
+  id            String       @id @default(cuid())
+  policyName    String       // e.g., "PPO Health Plan 2025"
+  groupNumber   String?      // Group Account ID
+  fundingType   FundingType
+  policyStatus  PolicyStatus
+  effectiveDate DateTime
+  endDate       DateTime?
+  policyTerm    Int?         // In months
+
+  // --- Relations ---
+  // A policy belongs to one account (the company/household)
+  account       Account      @relation(fields: [accountId], references: [id])
+  accountId     String
+
+  // A policy is provided by one carrier
+  carrier       Carrier      @relation(fields: [carrierId], references: [id])
+  carrierId     String
+
+  // Contacts are linked to policies via the Enrollment table
+  enrollments   Enrollment[]
+}
+
+// Added ElectionStatus to track enrollment choices.
+enum ElectionStatus {
+  ENROLLED
+  WAIVED
+  TERMINATED // Used if coverage is terminated mid-plan
+}
+
+// Join model for the many-to-many relationship between Contact and Policy
+model Enrollment {
+  id              String    @id @default(cuid())
+  status          ElectionStatus
+  effectiveDate   DateTime
+  terminationDate DateTime?
+
+  contact         Contact   @relation(fields: [contactId], references: [id])
+  contactId       String
+
+  policy          Policy    @relation(fields: [policyId], references: [id])
+  policyId        String
+
+  @@unique([contactId, policyId]) // Ensures a contact can only be enrolled in a policy once
+}
+
+model Carrier {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  website   String?
+  
+  // A carrier can have many policies
+  policies  Policy[]
+}
