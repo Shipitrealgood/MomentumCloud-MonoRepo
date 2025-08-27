@@ -67,18 +67,22 @@ export class SalesforceClientManager {
     }
     
     private async startServer() {
-        // CORRECTED PATH: Navigates up from `src/clients` to the monorepo root
-        const serverPath = path.resolve(__dirname, "../../../salesforce-mcp-server/dist/index.js");
-        
-        const transport = new StdioClientTransport({
-            command: "node",
-            args: [serverPath, this.accessToken, this.instanceUrl],
-        });
-        
-        this.client = new Client({ name: "salesforce-client-in-orchestrator", version: "1.0.0" });
-        await this.client.connect(transport);
-        console.log("--> Successfully connected to Salesforce MCP Server.");
-    }
+    const serverPath = path.resolve(__dirname, "../../../salesforce-mcp-server/dist/index.js");
+
+    const transport = new StdioClientTransport({
+        command: "node",
+        args: [serverPath],
+        env: {
+            ...process.env,
+            SALESFORCE_ACCESS_TOKEN: this.accessToken,
+            SALESFORCE_INSTANCE_URL: this.instanceUrl,
+        }
+    });
+
+    this.client = new Client({ name: "salesforce-client-in-orchestrator", version: "1.0.0" });
+    await this.client.connect(transport);
+    console.log("--> Successfully connected to Salesforce MCP Server.");
+}
     
     private async refreshAccessToken(refreshToken: string): Promise<TokenData | null> {
         console.log("--> Requesting new access token using refresh token...");

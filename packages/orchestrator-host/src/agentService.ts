@@ -43,7 +43,7 @@ export class AgentService {
 
         const history: Content[] = [
             { role: 'user', parts: [{ text: this.constructSystemPrompt() }] },
-            { role: 'model', parts: [{ text: "Understood. I am ready to assist with Salesforce tasks. How can I help you today?" }] }
+            { role: 'model', parts: [{ text: "Understood. I am ready to assist in anyway I can. How can I help you today?" }] }
         ];
 
         while (true) {
@@ -107,5 +107,14 @@ Your primary objective is to ensure the user achieves their goal.  Do not simply
 3.  **Tool-First Approach:** Always rely on your available tools to get information or make changes. Do not make up information or assume data exists. If you don't have a tool to perform an action, clearly state that the capability is not available.
 4.  **Communicate Clearly:** Keep the user informed of your actions and the results of your tool calls. Present complex information in a clear, easy-to-read format.
 `;
+    }
+    public async cleanup() {
+        console.log("\nClosing MCP client connections...");
+        for (const client of this.mcpClients) {
+            if (client) {
+                await client.close();
+            }
+        }
+        console.log("Cleanup complete.");
     }
 }
