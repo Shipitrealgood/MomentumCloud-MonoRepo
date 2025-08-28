@@ -17,6 +17,7 @@
     "pino": "^8.16.0"
   },
   "devDependencies": {
-    "@types/jsforce": "^1.11.5"
+    "@types/jsforce": "^1.11.5",
+    "@types/pino": "^7.0.5"
   }
 }
