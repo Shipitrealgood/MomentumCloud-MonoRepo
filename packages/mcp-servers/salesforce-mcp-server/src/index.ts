@@ -9,8 +9,9 @@ import { ElicitResultSchema } from "@modelcontextprotocol/sdk/types.js";
 // The server now expects the access token and instance URL to be passed in as arguments.
 const { SALESFORCE_ACCESS_TOKEN: accessToken, SALESFORCE_INSTANCE_URL: instanceUrl } = process.env;
 
+
 if (!accessToken || !instanceUrl) {
-    console.error("SALESFORCE_ACCESS_TOKEN and SALESFORCE_INSTANCE_URL environment variables must be set.");
+    console.error("Access token and instance URL must be provided via environment variables.");
     process.exit(1);
 }
 
@@ -147,9 +148,9 @@ server.registerResource(
 );
 
 server.registerTool(
-  "find-contact-by-name",
+  "find_contact",
   {
-    title: "Find Contact by Name",
+    title: "Find Contact",
     description: "Searches for a specific contact by their full name to retrieve their unique Salesforce ID.",
     inputSchema: {
       fullName: z.string().describe("The full name of the contact to find (e.g., 'Tommy Tippee')."),
@@ -166,30 +167,19 @@ server.registerTool(
       const conn = getSalesforceConnection();
       console.error(`--> TOOL: Searching for contact with name: '${fullName}'`);
 
-      // --- START OF THE DEFINITIVE FIX ---
+      const result = await conn.sobject('Contact').find({ Name: fullName }, ['Id', 'Name']);
 
-      // 1. Manually escape the input to prevent SOQL Injection.
-      const sanitizedFullName = fullName.replace(/'/g, "\\'");
-
-      // 2. Construct the query string with the sanitized input.
-      const soqlQuery = `SELECT Id, Name FROM Contact WHERE Name LIKE '%${sanitizedFullName}%' LIMIT 5`;
-      
-      // 3. Execute the query.
-      const result = await conn.query<{ Id: string; Name: string }>(soqlQuery);
-
-      // --- END OF THE DEFINITIVE FIX ---
-
-      if (result.totalSize === 0) {
+      if (result.length === 0) {
         return { content: [{ type: "text", text: `No contact found matching the name: ${fullName}` }] };
       }
 
-      const foundContacts = result.records.map(r => ({ id: r.Id, name: r.Name }));
+      const foundContacts = result.map(r => ({ id: r.Id, name: r.Name }));
 
       return {
         content: [
           {
             type: "text",
-            text: `Found ${result.totalSize} contact(s) matching '${fullName}':\n${JSON.stringify(foundContacts, null, 2)}`,
+            text: `Found ${result.length} contact(s) matching '${fullName}':\n${JSON.stringify(foundContacts, null, 2)}`,
           },
         ],
         structuredContent: {
@@ -288,12 +278,13 @@ server.registerTool(
 );
 
 server.registerTool(
-  "search_accounts",
+  "get_account",
   {
-    title: "Search Salesforce Accounts",
-    description: "Searches for Salesforce Accounts by name. Use this to find the exact name of an account when the user provides a partial or potentially misspelled name.",
+    title: "Get Salesforce Account",
+    description: "Searches for Salesforce Accounts by name and retrieves specific information (like phone number or industry).",
     inputSchema: {
       accountName: z.string().describe("The full or partial name of the account to search for."),
+      fields: z.array(z.string()).optional().describe("The specific fields to retrieve (e.g., ['Phone', 'Industry']). Defaults to 'Name' if not provided."),
     },
     outputSchema: {
       accounts: z.array(z.object({
@@ -301,17 +292,16 @@ server.registerTool(
       }))
     }
   },
-  async ({ accountName }) => {
+  async ({ accountName, fields }) => {
     try {
       const conn = getSalesforceConnection();
       console.error(`--> TOOL: Searching for accounts with name like: '${accountName}'`);
       
-      const sanitizedAccountName = accountName.replace(/'/g, "\\'");
-      const soqlQuery = `SELECT Name FROM Account WHERE Name LIKE '%${sanitizedAccountName}%' LIMIT 5`;
+      const fieldsToRetrieve = fields && fields.length > 0 ? fields : ['Name'];
       
-      const result = await conn.query<{ Name: string }>(soqlQuery);
+      const result = await conn.sobject('Account').find({ Name: { $like: `%${accountName}%` } }, fieldsToRetrieve);
 
-      if (result.totalSize === 0) {
+      if (result.length === 0) {
         return { 
             content: [{ type: "text", text: `No accounts found matching '${accountName}'.` }],
             structuredContent: {
@@ -320,13 +310,13 @@ server.registerTool(
         };
       }
 
-      const foundAccounts = result.records.map(r => ({ name: r.Name }));
+      const foundAccounts = result.map(r => ({ ...r }));
 
       return {
         content: [
           {
             type: "text",
-            text: `Found ${result.totalSize} account(s) matching '${accountName}':\n${JSON.stringify(foundAccounts, null, 2)}`,
+            text: `Found ${result.length} account(s) matching '${accountName}':\n${JSON.stringify(foundAccounts, null, 2)}`,
           },
         ],
         structuredContent: {
@@ -341,47 +331,6 @@ server.registerTool(
       };
     }
   }
-);
-
-server.registerTool(
-    "get_account_info",
-    {
-        title: "Get Salesforce Account Info",
-        description: "Retrieves specific information (like phone number or industry) for a Salesforce Account.",
-        inputSchema: {
-            accountName: z.string().describe("The name of the account to query."),
-            fields: z.array(z.string()).describe("The specific fields to retrieve (e.g., ['Phone', 'Industry'])."),
-        },
-    },
-    async ({ accountName, fields }) => {
-        try {
-            const conn = getSalesforceConnection();
-            console.error(`--> TOOL: Getting fields '${fields.join(', ')}' for Account: '${accountName}'`);
-
-            const soql = `SELECT ${fields.join(', ')} FROM Account WHERE Name = '${accountName}' LIMIT 1`;
-            const result = await conn.query(soql);
-
-            if (result.totalSize === 0) {
-                return { content: [{ type: "text", text: `Account not found: ${accountName}` }], isError: true };
-            }
-
-            const account = result.records[0];
-            const response = fields.map(field => `${field}: ${account[field] || 'N/A'}`).join('\n');
-            
-            return {
-                content: [{
-                    type: "text",
-                    text: response,
-                }],
-            };
-        } catch (error: any) {
-            console.error("--> Salesforce API Error:", error.message);
-            return {
-                content: [{ type: 'text', text: `Error fetching Salesforce Account: ${error.message}` }],
-                isError: true
-            };
-        }
-    }
 );
 
 server.registerTool(
@@ -508,9 +457,9 @@ server.registerTool(
 
 // Query restored to former glory.  Scary break earlier
 server.registerTool(
-  "query-contacts",
+  "list_contacts",
   {
-    title: "Query Salesforce Contacts",
+    title: "List Salesforce Contacts",
     description: "Retrieves a list of contacts, including their names, emails, and critically, their unique Salesforce IDs from a specific Salesforce Account.",
     inputSchema: {
       accountName: z.string().describe("The name of the account to query contacts for."),
