@@ -6,13 +6,18 @@
   "scripts": {
     "build": "tsc"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.15.0",
     "dotenv": "^17.1.0",
     "jsforce": "^3.9.1",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "pino": "^8.16.0"
   },
   "devDependencies": {
-    "@types/jsforce": "^1.11.5"
+    "@types/jsforce": "^1.11.5",
+    "@types/pino": "^7.0.5"
   }
 }
