@@ -6,7 +6,8 @@
   "scripts": {
     "build": "prisma generate && tsc",
     "db:migrate": "prisma migrate dev",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "clean": "rimraf dist .tsbuildinfo"
   },
   "dependencies": {
     "@prisma/client": "^6.14.0"

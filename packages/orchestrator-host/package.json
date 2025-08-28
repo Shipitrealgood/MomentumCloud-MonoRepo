@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "dotenv -e ../../.env -- node dist/index.js"
+    "start": "dotenv -e ../../.env -- node dist/index.js",
+    "clean": "rimraf dist .tsbuildinfo"
   },
   "engines": {
     "node": ">=18"

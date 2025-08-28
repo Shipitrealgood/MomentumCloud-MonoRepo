@@ -30,4 +30,8 @@ token-storage.json
 # ... other entries
 **/dist
 **/node_modules
-# ... other entries
+# Turborepo cache
+.turbo
+
+# TypeScript build info files
+*.tsbuildinfo

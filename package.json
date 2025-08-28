@@ -2,22 +2,25 @@
   "name": "momentumcloud-monorepo",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "npm@10.8.1",
   "workspaces": [
     "packages/**/*"
   ],
   "scripts": {
-    "build": "npm run build -ws",
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "clean": "turbo run clean",
+    "clean:full": "npm run clean && rimraf packages/*/node_modules",
+    "start": "turbo run start",
     "start:host": "node packages/orchestrator-host/dist/index.js",
     "heroku-postbuild": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
-    "prisma": "^6.14.0",
+    "rimraf": "^5.0.5",
     "ts-node": "^10.9.2",
     "tsx": "^4.16.5",
+    "turbo": "^2.5.6",
     "typescript": "^5.9.2"
-  },
-  "dependencies": {
-    "@prisma/client": "^6.14.0"
   }
 }
