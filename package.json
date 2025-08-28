@@ -10,9 +10,9 @@
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
     "clean": "turbo run clean",
-    "clean:full": "npm run clean && rimraf packages/*/node_modules",
+    "clean:full": "rimraf .turbo && npm run clean && rimraf packages/mcp-servers/auth-mcp-server/node_modules packages/mcp-servers/ease-mcp-server/node_modules packages/mcp-servers/salesforce-mcp-server/node_modules packages/momentum-cloud/crm/node_modules packages/orchestrator-host/node_modules",
     "start": "turbo run start",
-    "start:host": "node packages/orchestrator-host/dist/index.js",
+    "start:host": "turbo run start --filter=@mcp-agent/orchestrator-host",
     "heroku-postbuild": "npm run build"
   },
   "devDependencies": {
