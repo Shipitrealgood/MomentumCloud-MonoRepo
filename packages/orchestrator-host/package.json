@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "dotenv -e ../../.env -- node dist/index.js",
+    "dev": "npm run start",
     "clean": "rimraf dist .tsbuildinfo"
   },
   "engines": {
