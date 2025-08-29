@@ -8,7 +8,7 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "clean": "rimraf dist .tsbuildinfo"
+    "clean": "rimraf dist .tsbuildinfo node_modules"
   },
   "dependencies": {
     "@prisma/client": "^6.14.0"
