@@ -34,14 +34,14 @@ model Account {
 }
 
 enum ContactType {
-  EMPLOYEE   // An employee of a BUSINESS account
-  INDIVIDUAL // A member of a HOUSEHOLD account, or a dependent of an EMPLOYEE
-  PARTNER    // A non-employee business partner
+  Employee   // An employee of a BUSINESS account
+  Individual // A member of a HOUSEHOLD account, or a dependent of an EMPLOYEE
+  Partner    // A non-employee business partner
 }
 
 model Contact {
   id              String      @id @default(cuid())
-  recordType      ContactType
+  type            ContactType
   firstName       String
   lastName        String
   email           String?      @unique
@@ -75,28 +75,28 @@ model Contact {
 // ===================================
 
 enum EmploymentType {
-  FULL_TIME
-  PART_TIME
-  CONTRACTOR
+  Full_Time
+  Part_Time
+  Contractor
 }
 
 enum EmploymentStatus {
-  ACTIVE
-  TERMINATED
-  ON_LEAVE
+  Active
+  Terminated
+  On_Leave
 }
 
 enum CompensationType {
-  SALARY
-  HOURLY
+  Salary
+  Hourly
 }
 
 // Employee-specific fields
 model EmployeeProfile {
   id                 String           @id @default(cuid())
-  hireDate           DateTime
-  employmentType     EmploymentType
-  employmentStatus   EmploymentStatus
+  hireDate           DateTime?
+  employmentType     EmploymentType?
+  employmentStatus   EmploymentStatus?
   terminationDate    DateTime?
   eid                String?           @unique // Employee ID
   title              String?
@@ -104,8 +104,8 @@ model EmployeeProfile {
   updatedAt          DateTime         @updatedAt
 
   // Compensation detail
-  compensationType   CompensationType
-  compensationAmount Decimal // Using Decimal for financial accuracy
+  compensationType   CompensationType?
+  compensationAmount Decimal? // Using Decimal for financial accuracy
 
   // One-to-one link back to the main Contact record
   contact            Contact          @relation(fields: [contactId], references: [id])
@@ -113,18 +113,18 @@ model EmployeeProfile {
 }
 
 
-enum RelationshipToAccountPrimary {
-  PRIMARY // The Head of Household or primary contact for this group
-  SPOUSE
-  CHILD
-  DOMESTIC_PARTNER
-  OTHER
+enum RelationshipToContact {
+  Primary // The Head of Household or primary contact for this group
+  Spouse
+  Child
+  Domestic_Partner
+  Other
 }
 
 // Individual-specific fields (for dependents or household members)
 model IndividualProfile {
   id           String                     @id @default(cuid())
-  relationship RelationshipToAccountPrimary // The LABEL describing the relationship
+  relationship RelationshipToContact? // The LABEL describing the relationship
 
   // One-to-one link back to the main Contact record
   contact      Contact                    @relation(fields: [contactId], references: [id])

@@ -2,19 +2,19 @@
 CREATE TYPE "public"."AccountType" AS ENUM ('BUSINESS', 'HOUSEHOLD');
 
 -- CreateEnum
-CREATE TYPE "public"."ContactType" AS ENUM ('EMPLOYEE', 'INDIVIDUAL', 'PARTNER');
+CREATE TYPE "public"."ContactType" AS ENUM ('Employee', 'Individual', 'Partner');
 
 -- CreateEnum
-CREATE TYPE "public"."EmploymentType" AS ENUM ('FULL_TIME', 'PART_TIME', 'CONTRACTOR');
+CREATE TYPE "public"."EmploymentType" AS ENUM ('Full_Time', 'Part_Time', 'Contractor');
 
 -- CreateEnum
-CREATE TYPE "public"."EmploymentStatus" AS ENUM ('ACTIVE', 'TERMINATED', 'ON_LEAVE');
+CREATE TYPE "public"."EmploymentStatus" AS ENUM ('Active', 'Terminated', 'On_Leave');
 
 -- CreateEnum
-CREATE TYPE "public"."CompensationType" AS ENUM ('SALARY', 'HOURLY');
+CREATE TYPE "public"."CompensationType" AS ENUM ('Salary', 'Hourly');
 
 -- CreateEnum
-CREATE TYPE "public"."RelationshipToAccountPrimary" AS ENUM ('PRIMARY', 'SPOUSE', 'CHILD', 'DOMESTIC_PARTNER', 'OTHER');
+CREATE TYPE "public"."RelationshipToContact" AS ENUM ('Primary', 'Spouse', 'Child', 'Domestic_Partner', 'Other');
 
 -- CreateEnum
 CREATE TYPE "public"."FundingType" AS ENUM ('SELF_FUNDED', 'LEVEL_FUNDED', 'TRADITIONAL');
@@ -42,7 +42,7 @@ CREATE TABLE "public"."Account" (
 -- CreateTable
 CREATE TABLE "public"."Contact" (
     "id" TEXT NOT NULL,
-    "recordType" "public"."ContactType" NOT NULL,
+    "type" "public"."ContactType" NOT NULL,
     "firstName" TEXT NOT NULL,
     "lastName" TEXT NOT NULL,
     "email" TEXT,
@@ -60,16 +60,16 @@ CREATE TABLE "public"."Contact" (
 -- CreateTable
 CREATE TABLE "public"."EmployeeProfile" (
     "id" TEXT NOT NULL,
-    "hireDate" TIMESTAMP(3) NOT NULL,
-    "employmentType" "public"."EmploymentType" NOT NULL,
-    "employmentStatus" "public"."EmploymentStatus" NOT NULL,
+    "hireDate" TIMESTAMP(3),
+    "employmentType" "public"."EmploymentType",
+    "employmentStatus" "public"."EmploymentStatus",
     "terminationDate" TIMESTAMP(3),
     "eid" TEXT,
     "title" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "compensationType" "public"."CompensationType" NOT NULL,
-    "compensationAmount" DECIMAL(65,30) NOT NULL,
+    "compensationType" "public"."CompensationType",
+    "compensationAmount" DECIMAL(65,30),
     "contactId" TEXT NOT NULL,
 
     CONSTRAINT "EmployeeProfile_pkey" PRIMARY KEY ("id")
@@ -78,7 +78,7 @@ CREATE TABLE "public"."EmployeeProfile" (
 -- CreateTable
 CREATE TABLE "public"."IndividualProfile" (
     "id" TEXT NOT NULL,
-    "relationship" "public"."RelationshipToAccountPrimary" NOT NULL,
+    "relationship" "public"."RelationshipToContact",
     "contactId" TEXT NOT NULL,
 
     CONSTRAINT "IndividualProfile_pkey" PRIMARY KEY ("id")
