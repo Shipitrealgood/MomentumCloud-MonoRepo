@@ -18,6 +18,7 @@
     { "path": "packages/mcp-servers/ease-mcp-server" },
     { "path": "packages/mcp-servers/salesforce-mcp-server" },
     { "path": "packages/momentum-cloud/crm" },
-    { "path": "packages/orchestrator-host" }
+    { "path": "packages/orchestrator-host" },
+    { "path": "packages/shared-utils" }
   ]
 }

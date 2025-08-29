@@ -13,6 +13,11 @@
          "SALESFORCE_INSTANCE_URL"
        ]
     },
+    "@momentum-cloud/crm#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "tsconfig.tsbuildinfo"],
+      "env": ["DATABASE_URL", "NODE_ENV"]
+    },
     "start:ease": {
       "dependsOn": ["build"],
       "cache": false,
