@@ -10,7 +10,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
     "clean": "turbo run clean",
-    "clean:full": "rimraf .turbo node_modules package-lock.json && turbo run clean",
+    "clean:full": "turbo run clean && rimraf .turbo node_modules package-lock.json",
     "start": "turbo run start",
     "start:host": "turbo run start --filter=@mcp-agent/orchestrator-host",
     "start:ease": "turbo run start --filter=ease-mcp-server",
