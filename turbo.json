@@ -3,7 +3,24 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "tsconfig.tsbuildinfo"]
+      "outputs": ["dist/**", "tsconfig.tsbuildinfo"],
+      "env": ["NODE_ENV"]
+    },
+    "start:salesforce": {
+       "dependsOn": ["build"],
+       "env": [
+         "SALESFORCE_ACCESS_TOKEN",
+         "SALESFORCE_INSTANCE_URL"
+       ]
+    },
+    "start:ease": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "env": [
+        "EASE_EMAIL",
+        "EASE_PASSWORD",
+        "EASE_2FA_SECRET"
+      ]
     },
     "dev": {
       "cache": false,
