@@ -1,0 +1,42 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "tsconfig.tsbuildinfo"],
+      "env": ["NODE_ENV"]
+    },
+    "start:salesforce": {
+       "dependsOn": ["build"],
+       "env": [
+         "SALESFORCE_ACCESS_TOKEN",
+         "SALESFORCE_INSTANCE_URL"
+       ]
+    },
+    "@momentum-cloud/crm#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "tsconfig.tsbuildinfo"],
+      "env": ["DATABASE_URL", "NODE_ENV"]
+    },
+    "start:ease": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "env": [
+        "EASE_EMAIL",
+        "EASE_PASSWORD",
+        "EASE_2FA_SECRET"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["^build"]
+    },
+    "clean": {
+      "cache": false
+    },
+    "start": {
+       "dependsOn": ["build"]
+    }
+  }
+}

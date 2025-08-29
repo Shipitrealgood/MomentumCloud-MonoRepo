@@ -3,7 +3,9 @@
   "compilerOptions": {
     "target": "es2022",
     "outDir": "./dist",
-    "rootDir": "./src" // This is the new, important line
+    "rootDir": "./src",
+    "composite": true,
+    "types": ["node"]
   },
   "include": ["src/**/*"]
 }

@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "es2022",
-    "module": "Node16",
-    "moduleResolution": "Node16",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -10,7 +10,15 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "./dist"
+    "composite": true
   },
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    { "path": "packages/mcp-servers/auth-mcp-server" },
+    { "path": "packages/mcp-servers/ease-mcp-server" },
+    { "path": "packages/mcp-servers/salesforce-mcp-server" },
+    { "path": "packages/momentum-cloud/crm" },
+    { "path": "packages/orchestrator-host" },
+    { "path": "packages/shared-utils" }
+  ]
 }

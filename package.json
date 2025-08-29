@@ -2,22 +2,29 @@
   "name": "momentumcloud-monorepo",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "npm@10.8.1",
   "workspaces": [
     "packages/**/*"
   ],
   "scripts": {
-    "build": "npm run build -ws",
-    "start:host": "node packages/orchestrator-host/dist/index.js",
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "clean": "turbo run clean",
+    "clean:full": "turbo daemon clean && turbo run clean && rimraf .turbo node_modules package-lock.json",
+    "start": "turbo run start",
+    "start:host": "turbo run start --filter=@mcp-agent/orchestrator-host",
+    "start:ease": "turbo run start --filter=ease-mcp-server",
+    "start:salesforce": "turbo run start --filter=@mcp-agent/salesforce-mcp-server",
+    "start:crm": "turbo run start --filter=@momentum-cloud/crm",
+    "start:host:interactive": "turbo run build --filter=@mcp-agent/orchestrator-host && (cd packages/orchestrator-host && npm start)",
     "heroku-postbuild": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
-    "prisma": "^6.14.0",
+    "rimraf": "^5.0.5",
     "ts-node": "^10.9.2",
     "tsx": "^4.16.5",
+    "turbo": "^2.5.6",
     "typescript": "^5.9.2"
-  },
-  "dependencies": {
-    "@prisma/client": "^6.14.0"
   }
 }

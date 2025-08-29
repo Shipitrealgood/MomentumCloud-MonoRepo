@@ -1,0 +1,17 @@
+{
+  "name": "@momentum/shared-utils",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rimraf dist .tsbuildinfo node_modules"
+  },
+  "dependencies": {
+    "pino": "^8.16.0",
+    "pino-pretty": "^10.2.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}
