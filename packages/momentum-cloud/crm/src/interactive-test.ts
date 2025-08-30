@@ -1,8 +1,11 @@
 import readline from 'readline/promises';
 import { AccountService } from './services/accountService.js';
 import { ContactService } from './services/contactService.js';
-import { Prisma } from '@prisma/client';  // For Decimal if needed
-import { parse, isValid } from 'date-fns';  // Updated to use parse for flexible formats
+import { PolicyService } from './services/policyService.js';
+import { CarrierService } from './services/carrierService.js';
+import { EnrollmentService } from './services/enrollmentService.js';
+import { Prisma } from '@prisma/client';
+import { parse, isValid } from 'date-fns';
 
 async function main() {
   const rl = readline.createInterface({
@@ -11,7 +14,7 @@ async function main() {
   });
 
   console.log("--- CRM CLI UI (Base Interface) ---");
-  console.log("Commands: help, create-account, find-account, search-account, create-contact, search-contact, find-contact, list-contacts, exit");
+  console.log("Commands: help, create-account, find-account, search-account, create-contact, search-contact, find-contact, list-contacts, create-carrier, find-carrier, create-policy, find-policy, list-policies, create-enrollment, find-enrollment, list-enrollments, terminate-enrollment, exit");
 
   while (true) {
     const command = (await rl.question('> ')).trim().toLowerCase();
@@ -32,6 +35,15 @@ Available Commands:
 - search-contact: Search contacts by name.
 - find-contact: Find a contact by ID.
 - list-contacts: List contacts for an account (search by account name first).
+- create-carrier: Create a new carrier.
+- find-carrier: Find a carrier by name.
+- create-policy: Create a new policy.
+- find-policy: Find a policy by ID.
+- list-policies: List policies for an account.
+- create-enrollment: Enroll a contact in a policy.
+- find-enrollment: Find an enrollment by ID.
+- list-enrollments: List enrollments for a contact.
+- terminate-enrollment: Terminate an enrollment.
 - exit: Quit the CLI.
       `);
       continue;
@@ -160,6 +172,181 @@ Available Commands:
           const accountContacts = await ContactService.listContactsByAccount(selectedAccount.id);
           console.log(accountContacts.length > 0 ? `✅ Contacts for ${selectedAccount.name}: ${JSON.stringify(accountContacts, null, 2)}` : "🟡 No contacts.");
           break;
+        }
+
+        case 'create-carrier': {
+            const name = await rl.question('Carrier Name: ');
+            const website = await rl.question('Carrier Website (optional): ');
+            const carrier = await CarrierService.findOrCreateCarrier({ name, website });
+            console.log("✅ Carrier created or found:", carrier);
+            break;
+        }
+
+        case 'find-carrier': {
+            const name = await rl.question('Carrier Name to search: ');
+            const carrier = await CarrierService.findCarrierByName(name);
+            console.log(carrier ? `✅ Found: ${JSON.stringify(carrier, null, 2)}` : "🟡 No matches.");
+            break;
+        }
+
+        case 'create-policy': {
+            const accountSearch = await rl.question('Account name to assign policy to: ');
+            let foundAccounts = await AccountService.findAccountsByName(accountSearch);
+            if (foundAccounts.length === 0) {
+                const createNew = await rl.question('No accounts found. Create a new one? (y/n): ');
+                if (createNew.toLowerCase() !== 'y') {
+                    console.log("Canceled.");
+                    break;
+                }
+                const name = await rl.question('New Account Name: ');
+                const typeInput = await rl.question('Type (Business or Household): ');
+                const type = typeInput.toUpperCase();
+                const newAccount = await AccountService.createAccount({ name, type: type === 'BUSINESS' ? 'BUSINESS' : 'HOUSEHOLD' });
+                console.log("✅ Created account:", newAccount);
+                foundAccounts = [newAccount];
+            }
+            
+            console.log("Found accounts:");
+            foundAccounts.forEach((acc, index) => console.log(`${index + 1}: ${acc.name} (ID: ${acc.id})`));
+            const accChoice = parseInt(await rl.question('Select account number: '), 10);
+            const selectedAccount = foundAccounts[accChoice - 1];
+            if (!selectedAccount) {
+                console.log("❌ Invalid choice.");
+                break;
+            }
+
+            const carrierSearch = await rl.question('Carrier name for the policy: ');
+            let carrier = await CarrierService.findCarrierByName(carrierSearch);
+            if (!carrier) {
+                const createNew = await rl.question('Carrier not found. Create a new one? (y/n): ');
+                if (createNew.toLowerCase() !== 'y') {
+                    console.log("Canceled.");
+                    break;
+                }
+                const website = await rl.question('New Carrier Website (optional): ');
+                carrier = await CarrierService.findOrCreateCarrier({ name: carrierSearch, website });
+                console.log("✅ Carrier created:", carrier);
+            }
+
+            const policyName = await rl.question('Policy Name: ');
+            const fundingType = (await rl.question('Funding Type (SELF_FUNDED, LEVEL_FUNDED, TRADITIONAL): ')).toUpperCase();
+            const effectiveDate = await rl.question('Effective Date (YYYY-MM-DD): ');
+
+            const policy = await PolicyService.createPolicy({
+                accountId: selectedAccount.id,
+                carrierId: carrier.id,
+                policyName,
+                fundingType: fundingType as any,
+                effectiveDate,
+            });
+            console.log("✅ Policy created:", policy);
+            break;
+        }
+
+        case 'find-policy': {
+            const policyId = await rl.question('Policy ID: ');
+            const policy = await PolicyService.findPolicyById(policyId);
+            console.log(policy ? `✅ Policy: ${JSON.stringify(policy, null, 2)}` : "🟡 Not found.");
+            break;
+        }
+
+        case 'list-policies': {
+            const accountSearchName = await rl.question('Account name to search: ');
+            const foundAccounts = await AccountService.findAccountsByName(accountSearchName);
+            if (foundAccounts.length === 0) {
+                console.log("🟡 No accounts found.");
+                break;
+            }
+            console.log("Found accounts:");
+            foundAccounts.forEach((acc, index) => console.log(`${index + 1}: ${acc.name} (ID: ${acc.id})`));
+            const choice = parseInt(await rl.question('Select account number: '), 10);
+            const selectedAccount = foundAccounts[choice - 1];
+            if (!selectedAccount) {
+                console.log("❌ Invalid choice.");
+                break;
+            }
+            const policies = await PolicyService.listPoliciesByAccount(selectedAccount.id);
+            console.log(policies.length > 0 ? `✅ Policies for ${selectedAccount.name}: ${JSON.stringify(policies, null, 2)}` : "🟡 No policies.");
+            break;
+        }
+
+        case 'create-enrollment': {
+            const contactSearch = await rl.question('Contact name to enroll: ');
+            const contacts = await ContactService.searchContactsByName(contactSearch);
+            if (contacts.length === 0) {
+                console.log("🟡 No contacts found.");
+                break;
+            }
+            console.log("Found contacts:");
+            contacts.forEach((c, index) => console.log(`${index + 1}: ${c.firstName} ${c.lastName} (ID: ${c.id})`));
+            const contactChoice = parseInt(await rl.question('Select contact number: '), 10);
+            const selectedContact = contacts[contactChoice - 1];
+            if (!selectedContact) {
+                console.log("❌ Invalid choice.");
+                break;
+            }
+
+            const policies = await PolicyService.listPoliciesByAccount(selectedContact.accountId);
+             if (policies.length === 0) {
+                console.log("🟡 No policies found for this contact's account.");
+                break;
+            }
+            console.log("Available policies:");
+            policies.forEach((p, index) => console.log(`${index + 1}: ${p.policyName} (ID: ${p.id})`));
+            const policyChoice = parseInt(await rl.question('Select policy number: '), 10);
+            const selectedPolicy = policies[policyChoice - 1];
+            if (!selectedPolicy) {
+                console.log("❌ Invalid choice.");
+                break;
+            }
+
+            const status = (await rl.question('Election Status (ENROLLED, WAIVED): ')).toUpperCase();
+            const effectiveDate = await rl.question('Effective Date (YYYY-MM-DD): ');
+
+            const enrollment = await EnrollmentService.createEnrollment({
+                contactId: selectedContact.id,
+                policyId: selectedPolicy.id,
+                status: status as any,
+                effectiveDate,
+            });
+            console.log("✅ Enrollment created:", enrollment);
+            break;
+        }
+
+        case 'find-enrollment': {
+            const enrollmentId = await rl.question('Enrollment ID: ');
+            const enrollment = await EnrollmentService.findEnrollmentById(enrollmentId);
+            console.log(enrollment ? `✅ Enrollment: ${JSON.stringify(enrollment, null, 2)}` : "🟡 Not found.");
+            break;
+        }
+
+        case 'list-enrollments': {
+            const contactSearch = await rl.question('Contact name to list enrollments for: ');
+            const contacts = await ContactService.searchContactsByName(contactSearch);
+            if (contacts.length === 0) {
+                console.log("🟡 No contacts found.");
+                break;
+            }
+            console.log("Found contacts:");
+            contacts.forEach((c, index) => console.log(`${index + 1}: ${c.firstName} ${c.lastName} (ID: ${c.id})`));
+            const contactChoice = parseInt(await rl.question('Select contact number: '), 10);
+            const selectedContact = contacts[contactChoice - 1];
+            if (!selectedContact) {
+                console.log("❌ Invalid choice.");
+                break;
+            }
+
+            const enrollments = await EnrollmentService.listEnrollmentsByContact(selectedContact.id);
+            console.log(enrollments.length > 0 ? `✅ Enrollments for ${selectedContact.firstName} ${selectedContact.lastName}: ${JSON.stringify(enrollments, null, 2)}` : "🟡 No enrollments.");
+            break;
+        }
+
+        case 'terminate-enrollment': {
+            const enrollmentId = await rl.question('Enrollment ID to terminate: ');
+            const terminationDate = await rl.question('Termination Date (YYYY-MM-DD): ');
+            const enrollment = await EnrollmentService.terminateEnrollment(enrollmentId, terminationDate);
+            console.log("✅ Enrollment terminated:", enrollment);
+            break;
         }
 
         default:
