@@ -14,19 +14,19 @@ export class HomePage {
   // --- Locators for the Main Navigation Bar ---
 
   get homeLink(): Locator {
-    return this.page.getByRole('link', { name: 'Home' });
+    return this.page.getByRole('link', { name: 'Home', exact: true });
   }
 
   get todosLink(): Locator {
-    return this.page.getByRole('link', { name: 'To-Dos' });
+    return this.page.getByRole('link', { name: 'To-Dos', exact: true });
   }
 
   get companiesLink(): Locator {
-    return this.page.getByRole('link', { name: 'Companies' });
+    return this.page.getByRole('link', { name: 'Companies', exact: true });
   }
 
   get reportsLink(): Locator {
-    return this.page.getByRole('link', { name: 'Reports' });
+    return this.page.getByRole('link', { name: 'Reports', exact: true });
   }
   
   // --- Locators for Global Search ---
@@ -40,13 +40,37 @@ export class HomePage {
       return this.page.getByRole('textbox', { name: 'search', exact: true });
   }
 
-  // --- Actions ---
+  // --- High-Level Navigation Actions ---
 
   /**
-   * Navigates to a specific section using the main navigation bar.
-   * @param tabName The name of the tab to click on.
+   * Navigates to the Home dashboard.
    */
-  async navigateTo(tabName: 'Home' | 'To-Dos' | 'Companies' | 'Reports'): Promise<void> {
-    await this.page.getByRole('link', { name: tabName, exact: true }).click();
+  async goToHome(): Promise<void> {
+    console.log("HomePage: Navigating to Home...");
+    await this.homeLink.click();
+  }
+
+  /**
+   * Navigates to the To-Dos page.
+   */
+  async goToTodos(): Promise<void> {
+    console.log("HomePage: Navigating to To-Dos...");
+    await this.todosLink.click();
+  }
+
+  /**
+   * Navigates to the Companies list page.
+   */
+  async goToCompanies(): Promise<void> {
+    console.log("HomePage: Navigating to Companies...");
+    await this.companiesLink.click();
+  }
+  
+  /**
+   * Navigates to the Reports page.
+   */
+  async goToReports(): Promise<void> {
+    console.log("HomePage: Navigating to Reports...");
+    await this.reportsLink.click();
   }
 }

@@ -10,6 +10,7 @@
     "dev": "npm run start",
     "inspect": "cross-env PWDEBUG=1 node dist/inspector.js",
     "test:test": "node dist/test.js",
+    "test:benefit": "node dist/benefitTest.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "clean": "rimraf dist .tsbuildinfo node_modules"
   },
