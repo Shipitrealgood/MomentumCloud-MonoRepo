@@ -1,14 +1,13 @@
 // packages/mcp-servers/ease-mcp-server/src/automation-lib/workflows/index.ts
 
-// Import all the specific workflow classes we want to expose.
-import { EmployeeNavigation } from './navigation/employee.js';
-import { BenefitsNavigation } from './navigation/benefits.js'; // <-- The missing import
+// Import the consolidated workflow class from its correct location.
+import { EmployeeNavigationWorkflows } from './navigation/employee.js';
 
-// We construct the nested object ourselves, which is much clearer for the compiler.
+// Construct the nested object that EaseApp will use.
 export const Workflows = {
   Navigation: {
-    EmployeeNavigation,
-    BenefitsNavigation  // <-- Add the new class to the export object
+    // Expose the consolidated class under a consistent name.
+    EmployeeNavigation: EmployeeNavigationWorkflows
   }
   // When we add actions, we will import them and add them here in the same way.
 };

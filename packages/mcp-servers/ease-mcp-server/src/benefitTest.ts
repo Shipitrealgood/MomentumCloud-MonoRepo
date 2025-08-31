@@ -33,8 +33,9 @@ async function runBenefitNavigationTest() {
     // Step 1: Login. This handles all browser setup.
     await easeApp.login();
 
-    // Step 2: Call the new, stacked workflow to navigate directly to the benefits tab.
-    await easeApp.workflows.Navigation.BenefitsNavigation.toBenefitsTab(easeApp.page!, companyNameToTest, employeeNameToTest);
+    // --- THE FIX IS HERE ---
+    // Step 2: Call the correct workflow using the final, consolidated path.
+    await easeApp.workflows.Navigation.EmployeeNavigation.navigateToBenefitsTab(easeApp.page!, companyNameToTest, employeeNameToTest);
 
     console.log("\n✅ Test completed successfully! Arrived at the Benefits tab.");
 

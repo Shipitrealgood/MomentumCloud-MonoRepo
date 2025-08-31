@@ -37,7 +37,7 @@ async function runTest() {
     // --- THE FIX IS HERE ---
     // Step 2: Call the workflow THROUGH the easeApp instance.
     // This is the correct, encapsulated way to do it.
-    await easeApp.workflows.Navigation.EmployeeNavigation.toProfile(easeApp.page!, companyNameToTest, employeeNameToTest);
+     await easeApp.workflows.Navigation.EmployeeNavigation.navigateEmployeeToProfile(easeApp.page!, companyNameToTest, employeeNameToTest);
 
     console.log("✅ Successfully navigated to employee profile. Now testing getters...");
 
