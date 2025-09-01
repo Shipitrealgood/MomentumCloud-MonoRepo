@@ -1,9 +1,8 @@
 import { Page } from 'playwright';
-import { HomePage } from '../../page-objects/homepage.js';
-import { CompaniesListPage } from '../../page-objects/companies.js';
 import { CompanyDashboardPage } from '../../page-objects/company.js';
 import { EmployeesPage } from '../../page-objects/employees.js';
 import { EmployeePage } from '../../page-objects/employee.js';
+import { CompanyNavigationWorkflows } from './company.js';
 
 /**
  * A consolidated collection of all navigation workflows related to an employee.
@@ -16,13 +15,13 @@ export class EmployeeNavigationWorkflows {
   public static async navigateEmployeeToProfile(page: Page, companyName: string, employeeName: string): Promise<void> {
     console.log(`WORKFLOW: Navigating to profile for ${employeeName} at ${companyName}...`);
 
-    const homePage = new HomePage(page);
-    const companiesListPage = new CompaniesListPage(page);
+    // REFACTOR: Reuse the modular company navigation workflow.
+    await CompanyNavigationWorkflows.navigateToCompanyDashboard(page, companyName);
+
+    // Continue with employee-specific steps.
     const companyDashboardPage = new CompanyDashboardPage(page);
     const employeesPage = new EmployeesPage(page);
 
-    await homePage.goToCompanies();
-    await companiesListPage.searchAndNavigateToCompany(companyName);
     await companyDashboardPage.goToEmployeesTab();
     await employeesPage.searchAndNavigateToEmployee(employeeName);
 

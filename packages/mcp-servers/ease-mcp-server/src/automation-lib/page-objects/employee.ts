@@ -149,10 +149,18 @@ class EmploymentTabPage {
   get detailsLink(): Locator { return this.page.getByRole('link', { name: 'Details', exact: true }); }
   get compensationLink(): Locator { return this.page.getByRole('link', { name: 'Compensation', exact: true }); }
   get payrollLink(): Locator { return this.page.getByRole('link', { name: 'Payroll', exact: true }); }
+  get terminateEmployeeButton(): Locator { return this.page.getByRole('button', { name: 'Terminate Employee' }); }
 
   async goToDetailsSubTab(): Promise<void> { await this.detailsLink.click(); }
   async goToCompensationSubTab(): Promise<void> { await this.compensationLink.click(); }
   async goToPayrollSubTab(): Promise<void> { await this.payrollLink.click(); }
+
+  // Action to click TerminateEmployee Button
+  // --- NEW: The simple action to click the termination button ---
+  async goToterminateEmployee(): Promise<void> {
+    await this.page.waitForTimeout(1000);
+    await this.terminateEmployeeButton.click();
+  }
 }
 
 /**

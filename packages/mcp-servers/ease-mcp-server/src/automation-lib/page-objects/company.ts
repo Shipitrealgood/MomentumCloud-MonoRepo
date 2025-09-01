@@ -58,6 +58,10 @@ export class CompanyDashboardPage {
   
   async goToEmployeesTab(): Promise<void> {
     await this.employeesLink.click();
+    // THE FIX: Wait for a key element on the next page (the Actions button)
+    // to be visible before considering the navigation complete. This prevents
+    // race conditions where the script tries to act before the page is ready.
+    await this.employeesTab.actionsButton.waitFor({ state: 'visible' });
   }
 
   async goToBenefitsTab(): Promise<void> {
@@ -103,7 +107,12 @@ class EmployeesTabPage {
   constructor(page: Page) { this.page = page; }
 
   get searchBox(): Locator { return this.page.getByRole('textbox', { name: /Searching \d+ employees/i }); }
-  get actionsButton(): Locator { return this.page.getByRole('button', { name: 'Actions' }); }
+  
+  // THE DEFINITIVE FIX:
+  // Using a specific CSS selector to uniquely identify the "Actions" button
+  // and ignore other elements like chat bots that might have the same name.
+  // This looks for a <button> element that also has the class "c-button".
+  get actionsButton(): Locator { return this.page.locator('button.c-button:has-text("Actions")'); }
 
   // Locators for options within the 'Actions' dropdown
   get addEmployeeAction(): Locator { return this.page.locator('a').filter({ hasText: 'Add Employee' }); }
@@ -118,7 +127,12 @@ class EmployeesTabPage {
   }
 
   async clickAddEmployee(): Promise<void> {
+    // Using the sequence discovered during debugging.
+    // First, a hardcoded pause to ensure the page is settled.
+    await this.page.waitForTimeout(1000); // 1000ms = 1 second
+    // Then, click the main actions button.
     await this.actionsButton.click();
+    // Finally, click the option within the now-open dropdown.
     await this.addEmployeeAction.click();
   }
 }

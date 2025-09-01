@@ -15,8 +15,8 @@ dotenv.config({ path: envPath });
  */
 async function runBenefitNavigationTest() {
   // --- CONFIGURATION ---
-  const companyNameToTest = "insert company"; 
-  const employeeNameToTest = "insert ee";
+  const companyNameToTest = "insert employee"; 
+  const employeeNameToTest = "insert employee";
   // -------------------
 
   if (!process.env.EASE_EMAIL || !process.env.EASE_PASSWORD) {
