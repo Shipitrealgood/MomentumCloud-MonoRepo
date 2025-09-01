@@ -12,13 +12,20 @@
     "forceConsistentCasingInFileNames": true,
     "composite": true
   },
-  "exclude": ["node_modules", "dist"],
+  "files": [],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "packages/**/dist",
+    "packages/**/node_modules"
+  ],
   "references": [
     { "path": "packages/mcp-servers/auth-mcp-server" },
     { "path": "packages/mcp-servers/ease-mcp-server" },
     { "path": "packages/mcp-servers/salesforce-mcp-server" },
     { "path": "packages/momentum-cloud/crm" },
     { "path": "packages/orchestrator-host" },
-    { "path": "packages/shared-utils" }
+    { "path": "packages/shared-utils" },
+    { "path": "packages/momentum-cloud/pdf-filler" }
   ]
 }

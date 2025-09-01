@@ -1,42 +1,99 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", "tsconfig.tsbuildinfo"],
-      "env": ["NODE_ENV"]
-    },
-    "start:salesforce": {
-       "dependsOn": ["build"],
-       "env": [
-         "SALESFORCE_ACCESS_TOKEN",
-         "SALESFORCE_INSTANCE_URL"
-       ]
-    },
-    "@momentum-cloud/crm#build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", "tsconfig.tsbuildinfo"],
-      "env": ["DATABASE_URL", "NODE_ENV"]
-    },
-    "start:ease": {
-      "dependsOn": ["build"],
+    "dev": {
       "cache": false,
+      "persistent": true,
+      "dependsOn": [
+        "^build"
+      ]
+    },
+    "start": {
+      "dependsOn": [
+        "build"
+      ]
+    },
+    "clean": {
+      "cache": false
+    },
+    "@momentum/shared-utils#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        "tsconfig.tsbuildinfo"
+      ]
+    },
+    "@mcp-agent/orchestrator-host#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        "tsconfig.tsbuildinfo"
+      ]
+    },
+    "@mcp-agent/auth-mcp-server#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        "tsconfig.tsbuildinfo"
+      ]
+    },
+    "ease-mcp-server#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        "tsconfig.tsbuildinfo"
+      ],
       "env": [
         "EASE_EMAIL",
         "EASE_PASSWORD",
         "EASE_2FA_SECRET"
       ]
     },
-    "dev": {
-      "cache": false,
-      "persistent": true,
-      "dependsOn": ["^build"]
+    "@mcp-agent/salesforce-mcp-server#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        "tsconfig.tsbuildinfo"
+      ],
+      "env": [
+        "SALESFORCE_ACCESS_TOKEN",
+        "SALESFORCE_INSTANCE_URL"
+      ]
     },
-    "clean": {
-      "cache": false
+    "@momentum-cloud/crm#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        "tsconfig.tsbuildinfo"
+      ],
+      "env": [
+        "DATABASE_URL",
+        "NODE_ENV"
+      ]
     },
-    "start": {
-       "dependsOn": ["build"]
+    "@momentum/momentum-pdf#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        "tsconfig.tsbuildinfo"
+      ],
+      "env": [
+        "PDF_FILLER_PORT"
+      ]
     }
   }
 }
