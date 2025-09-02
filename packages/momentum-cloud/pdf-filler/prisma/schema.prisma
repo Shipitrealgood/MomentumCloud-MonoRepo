@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PDF_DATABASE_URL")
+}
+
+model PdfTemplate {
+  id               String    @id @default(cuid())
+  templateId       String    @unique // e.g., "allied-termination-form-v1"
+  originalFileName String
+  filePath         String    // Path to the PDF file in storage
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  fields           PdfField[]
+}
+
+model PdfField {
+  id         String @id @default(cuid())
+  name       String // e.g., "Group Name" or "undefined_2"
+  type       String // e.g., "PDFTextField"
+
+  template   PdfTemplate @relation(fields: [templateId], references: [id])
+  templateId String
+
+  // --- NEW: A field can have multiple options (for radio/dropdowns) ---
+  options    PdfFieldOption[]
+}
+
+// --- NEW TABLE: Stores the possible values for a field ---
+model PdfFieldOption {
+  id        String   @id @default(cuid())
+  value     String   // The "export value" of the option (e.g., "M")
+
+  field     PdfField @relation(fields: [fieldId], references: [id])
+  fieldId   String
+}

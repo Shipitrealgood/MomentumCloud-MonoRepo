@@ -1,0 +1,248 @@
+{
+  "templateId": "allied-termination-form",
+  "originalFileName": "Allied-Termination-Form.pdf",
+  "templatePath": "templates\\Allied-Termination-Form.pdf",
+  "ingestedAt": "2025-09-01T23:58:40.450Z",
+  "fields": [
+    {
+      "name": "Group Name",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Middle Initial",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Employees Termination or",
+      "type": "PDFCheckBox"
+    },
+    {
+      "name": "Spouses Divorce or Legal",
+      "type": "PDFCheckBox"
+    },
+    {
+      "name": "undefined",
+      "type": "PDFCheckBox"
+    },
+    {
+      "name": "Dropping Coverage specify on",
+      "type": "PDFCheckBox"
+    },
+    {
+      "name": "Terminate back to coverage",
+      "type": "PDFCheckBox"
+    },
+    {
+      "name": "undefined_2",
+      "type": "PDFCheckBox"
+    },
+    {
+      "name": "undefined_3",
+      "type": "PDFCheckBox"
+    },
+    {
+      "name": "undefined_4",
+      "type": "PDFCheckBox"
+    },
+    {
+      "name": "undefined_5",
+      "type": "PDFCheckBox"
+    },
+    {
+      "name": "Involuntary",
+      "type": "PDFCheckBox"
+    },
+    {
+      "name": "Voluntary",
+      "type": "PDFCheckBox"
+    },
+    {
+      "name": "Dependent NamesRow1",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent NamesRow2",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent NamesRow3",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent NamesRow4",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "NGBS Office Use Only",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Approved By",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Zip Code",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Employee Name",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Group Number",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "MM3",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "DD3",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "YY3",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Employee Last Name",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Employee First Name",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Social Security Number",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Birth Month",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Birth Day",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Birth Year",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Employee Address Street",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Empoyee Address City",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Employee State",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Coverage Termination Month",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Coverage Termination Year",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Coverage Terminaton Day",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Special notes 1",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Special notes 2",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Gender",
+      "type": "PDFRadioGroup"
+    },
+    {
+      "name": "Birthdate 01/00/2000 Format",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent Row1 Birthdate 01/00/2000 Format",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent Row2 Social Security number",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent Row2 Gender",
+      "type": "PDFRadioGroup"
+    },
+    {
+      "name": "Dependent Row1 gender",
+      "type": "PDFRadioGroup"
+    },
+    {
+      "name": "Employee Social Security 2",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent Row2 Birthdate 01/00/2000 format",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent Row2 Social Security Number",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent Row 3 Gender",
+      "type": "PDFRadioGroup"
+    },
+    {
+      "name": "Dependent Row 3 Birthdate 01/00/2000 Format",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent Row3 Social Security Number",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent Row4 Gender",
+      "type": "PDFRadioGroup"
+    },
+    {
+      "name": "Dependent Row4 Date of Birth 01/00/2000 Format",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent Row 4 Social Security Number",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent NamesRow5",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent Row5 Gender",
+      "type": "PDFRadioGroup"
+    },
+    {
+      "name": "Dependent Row5 Date of Birth 01/00/2000 Format",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Dependent Row5 Social Security Number",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Company Representative Signature",
+      "type": "PDFTextField"
+    },
+    {
+      "name": "Signed Date",
+      "type": "PDFTextField"
+    }
+  ]
+}
