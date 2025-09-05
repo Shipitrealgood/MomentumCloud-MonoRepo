@@ -9,7 +9,7 @@ import {
   CompensationType,
   RelationshipToContact,
   Prisma,
-} from '@prisma/client';
+} from '../../prisma/generated/client/index.js';
 import { parseISO, isValid } from 'date-fns';  // Add date-fns for better parsing; npm i date-fns
 
 const prisma = new PrismaClient();

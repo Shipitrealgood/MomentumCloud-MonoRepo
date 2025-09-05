@@ -37,3 +37,6 @@ token-storage.json
 *.tsbuildinfo
 
 # Ease Dev #
+
+# Prisma #
+**/prisma/generated/

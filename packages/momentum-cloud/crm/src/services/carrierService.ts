@@ -1,4 +1,4 @@
-import { PrismaClient, Carrier } from '@prisma/client';
+import { PrismaClient, Carrier } from '../../prisma/generated/client/index.js';;
 
 const prisma = new PrismaClient();
 

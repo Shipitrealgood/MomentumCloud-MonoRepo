@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "start": "node dist/index.js",
     "dev": "npm run start",
     "inspect": "cross-env PWDEBUG=1 node dist/inspector.js",
@@ -14,8 +14,12 @@
     "test:add-employee": "node dist/addEmployeeTest.js",
     "test:add-employee:debug": "cross-env PWDEBUG=1 node dist/addEmployeeTest.js",
     "test:terminate": "node dist/terminateEmployeeTest.js",
+    "test:upload-census": "node dist/syncDataTest.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "clean": "rimraf dist .tsbuildinfo node_modules"
+    "clean": "rimraf dist .tsbuildinfo node_modules prisma/generated",
+    "db:migrate": "prisma migrate dev --name init",
+    "db:studio": "prisma studio",
+    "db:seed": "npm run build && node dist/ingest-census-templates.js"
   },
   "engines": {
     "node": ">=18"
@@ -25,17 +29,22 @@
   "license": "ISC",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.15.0",
+    "@prisma/client": "^6.14.0",
     "dotenv": "^16.3.1",
     "otplib": "^12.0.1",
+    "pino": "^8.16.0",
     "playwright": "^1.39.0",
     "thirty-two": "^1.0.2",
-    "zod": "^3.22.4",
-    "pino": "^8.16.0"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/node": "^20.9.0",
     "cross-env": "^7.0.3",
+    "prisma": "^6.14.0",
     "typescript": "^5.2.2"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
   }
 }
     

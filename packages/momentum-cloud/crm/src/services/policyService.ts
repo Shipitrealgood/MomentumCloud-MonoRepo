@@ -4,7 +4,7 @@ import {
   PolicyStatus,
   FundingType,
   Prisma,
-} from '@prisma/client';
+} from '../../prisma/generated/client/index.js';
 import { isValid, parseISO } from 'date-fns';
 
 const prisma = new PrismaClient();

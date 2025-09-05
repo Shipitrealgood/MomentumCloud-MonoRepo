@@ -4,7 +4,7 @@ import { ContactService } from './services/contactService.js';
 import { PolicyService } from './services/policyService.js';
 import { CarrierService } from './services/carrierService.js';
 import { EnrollmentService } from './services/enrollmentService.js';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/generated/client/index.js';
 import { parse, isValid } from 'date-fns';
 
 async function main() {

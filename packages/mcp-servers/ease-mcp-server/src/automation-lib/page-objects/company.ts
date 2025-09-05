@@ -1,4 +1,5 @@
 import { Page, Locator } from 'playwright';
+import path from 'path';
 
 /**
  * Page Object for the main dashboard of a single company.
@@ -126,6 +127,8 @@ class EmployeesTabPage {
     await this.searchBox.press('Enter');
   }
 
+  // Actions on employee Tab Page
+
   async clickAddEmployee(): Promise<void> {
     // Using the sequence discovered during debugging.
     // First, a hardcoded pause to ensure the page is settled.
@@ -135,6 +138,24 @@ class EmployeesTabPage {
     // Finally, click the option within the now-open dropdown.
     await this.addEmployeeAction.click();
   }
+
+  async goToImportEmployees(): Promise<void> {
+    console.log("EmployeesTabPage: Navigating to Import Employees wizard...");
+    await this.page.waitForTimeout(1000);
+    await this.actionsButton.click();
+    await this.importEmployeesAction.click();
+    // Wait for a unique element of the wizard to ensure navigation is complete
+    await this.page.getByRole('button', { name: 'Choose File' }).waitFor();
+  }
+
+  async startFullCensusGeneration(): Promise<void> {
+    console.log("EmployeesTabPage: Starting full census generation...");
+    await this.page.waitForTimeout(1000);
+    await this.actionsButton.click();
+    await this.fullCensusAction.click();
+  }
+
+  // ... inside EmployeesTabPage class ..
 }
 
 /**
