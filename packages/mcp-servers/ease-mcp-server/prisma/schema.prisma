@@ -37,7 +37,7 @@ model Company {
 
 model Employee {
   id String @id @default(cuid())
-  eid String? @unique
+  eid String?
   firstName String
   middleName String?
   lastName String
@@ -70,6 +70,8 @@ model Employee {
   dependents Dependent[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([companyId, eid]) // Composite key for uniqueness
 }
 
 model Dependent {
@@ -86,5 +88,5 @@ model Dependent {
   employeeId String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  @@unique([eid, firstName, lastName, relationship]) // Composite key for uniqueness
+  @@unique([employeeId, firstName, lastName, relationship]) // Composite key for uniqueness
 }

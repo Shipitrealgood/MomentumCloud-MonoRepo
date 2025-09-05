@@ -135,7 +135,12 @@ export class CensusService {
 
         try {
           const upsertedEmployee = await prisma.employee.upsert({
-            where: { eid },
+            where: {
+              companyId_eid: {
+                companyId: company.id,
+                eid,
+              },
+            },
             update: employeeData,
             create: employeeData,
           });
@@ -163,18 +168,18 @@ export class CensusService {
         };
 
         try {
-          // Find the parent employee by EID
-          const employee = await prisma.employee.findUnique({ where: { eid } });
+          // Find the parent employee by EID and companyId
+          const employee = await prisma.employee.findUnique({ where: { companyId_eid: { companyId: company.id, eid } } });
           if (!employee) {
             result.errors.push(`Dependent with EID ${eid} skipped: No matching employee.`);
             continue;
           }
           dependentData.employeeId = employee.id;
 
-          // Use SSN if available, otherwise use composite key
+          // Use SSN if available, otherwise use composite key based on employeeId
           const whereClause = dependentData.ssn
             ? { ssn: dependentData.ssn }
-            : { eid_firstName_lastName_relationship: { eid, firstName: dependentData.firstName, lastName: dependentData.lastName, relationship: dependentData.relationship } };
+            : { employeeId_firstName_lastName_relationship: { employeeId: employee.id, firstName: dependentData.firstName, lastName: dependentData.lastName, relationship: dependentData.relationship } };
 
           const upsertedDependent = await prisma.dependent.upsert({
             where: whereClause,
