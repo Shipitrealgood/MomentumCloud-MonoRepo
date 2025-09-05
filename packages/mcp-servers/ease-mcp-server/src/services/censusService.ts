@@ -1,13 +1,12 @@
 // packages/mcp-servers/ease-mcp-server/src/services/censusService.ts
 
-import { PrismaClient, Company, Employee } from '../../prisma/generated/client/index.js';
+import { PrismaClient } from '../../prisma/generated/client/index.js';
 import { promises as fs } from 'fs';
 import { parse } from 'csv-parse/sync';
 import { parse as dateParse, isValid } from 'date-fns';
 
 const prisma = new PrismaClient();
 
-// A type to describe the result of our reconciliation
 export type ReconciliationResult = {
   companyName: string;
   employeesCreated: number;
@@ -17,29 +16,44 @@ export type ReconciliationResult = {
   errors: string[];
 };
 
-export class CensusService {
+// Expected CSV headers (from ingest-census-template.ts)
+const REQUIRED_CSV_HEADERS = [
+  'EID',
+  'First Name',
+  'Last Name',
+  'Relationship',
+  'Zip',
+  'Personal Phone',
+  'Work Phone',
+  'Employee Type',
+  'Employee Status',
+  'Pay Cycle',
+  'Compensation',
+  'Compensation Type',
+  'Scheduled Hours',
+];
 
-  /**
-   * Parses a date string from the CSV into a JavaScript Date object.
-   * Handles various common formats.
-   */
+export class CensusService {
   private static parseDate(dateStr: string | undefined | null): Date | null {
     if (!dateStr) return null;
-    // Attempt to parse formats like "MM/DD/YYYY" or "M/D/YYYY"
     const parsedDate = dateParse(dateStr, 'M/d/yyyy', new Date());
     if (isValid(parsedDate)) {
       return parsedDate;
     }
     return null;
   }
-  
-  /**
-   * The core reconciliation logic. Reads a census file, compares it to the database,
-   * and synchronizes the data.
-   * @param filePath The path to the downloaded census CSV file.
-   * @param companyName The name of the company for which the census is being processed.
-   * @returns A summary of the changes made to the database.
-   */
+
+  private static cleanCurrency(value: string | undefined | null): number | null {
+    if (!value) return null;
+    const cleaned = value.replace(/[^0-9.-]+/g, '');
+    return parseFloat(cleaned) || null;
+  }
+
+  private static cleanNumber(value: string | undefined | null): number | null {
+    if (!value) return null;
+    return parseInt(value, 10) || null;
+  }
+
   public static async reconcileCensusData(filePath: string, companyName: string): Promise<ReconciliationResult> {
     const result: ReconciliationResult = {
       companyName,
@@ -50,30 +64,48 @@ export class CensusService {
       errors: [],
     };
 
-    // 1. Read and parse the CSV file
+    // Read and parse the CSV file
     const fileContent = await fs.readFile(filePath);
     const records: any[] = parse(fileContent, {
       columns: true,
       skip_empty_lines: true,
     });
 
-    // 2. Find or create the parent company record
+    // Validate CSV headers
+    const headers = Object.keys(records[0] || {});
+    const missingHeaders = REQUIRED_CSV_HEADERS.filter(header => !headers.includes(header));
+    if (missingHeaders.length > 0) {
+      result.errors.push(`CSV is missing required headers: ${missingHeaders.join(', ')}`);
+      console.error(result.errors[result.errors.length - 1]);
+      return result;
+    }
+
+    console.log(`Parsed ${records.length} rows from CSV. Sample row:`, JSON.stringify(records[0], null, 2));
+
+    // Find or create the parent company
     let company = await prisma.company.upsert({
       where: { name: companyName },
       update: {},
       create: { name: companyName },
     });
 
-    // 3. Process each row in the census
+    // Process each row
     for (const record of records) {
       const isEmployee = record['Relationship']?.toLowerCase() === 'employee';
       const eid = record['EID'];
 
-      if (isEmployee && eid) {
-        // --- Process an Employee Record ---
+      if (!eid) {
+        result.errors.push(`Skipping row with missing EID: ${JSON.stringify(record)}`);
+        continue;
+      }
+
+      if (isEmployee) {
+        // Process Employee
         const employeeData = {
-          firstName: record['First Name'],
-          lastName: record['Last Name'],
+          eid,
+          companyId: company.id,
+          firstName: record['First Name'] || '',
+          lastName: record['Last Name'] || '',
           middleName: record['Middle Name'],
           ssn: record['SSN'],
           birthDate: this.parseDate(record['Birth Date']),
@@ -85,37 +117,84 @@ export class CensusService {
           address2: record['Address 2'],
           city: record['City'],
           state: record['State'],
-          zipCode: record['Zip Code'],
+          zipCode: record['Zip'],
           county: record['County'],
+          personalPhone: record['Personal Phone'],
+          workPhone: record['Work Phone'],
+          mobilePhone: record['Mobile Phone'],
           hireDate: this.parseDate(record['Hire Date']),
-          status: record['Status'],
+          terminationDate: this.parseDate(record['Termination Date']),
+          employmentType: record['Employee Type'],
+          status: record['Employee Status'],
           jobTitle: record['Job Title'],
-          companyId: company.id,
+          payCycle: record['Pay Cycle'],
+          compensationAmount: this.cleanCurrency(record['Compensation']),
+          compensationType: record['Compensation Type'],
+          scheduledHours: this.cleanNumber(record['Scheduled Hours']),
         };
 
         try {
           const upsertedEmployee = await prisma.employee.upsert({
             where: { eid },
             update: employeeData,
-            create: { ...employeeData, eid },
+            create: employeeData,
           });
 
-          // Check if the record was created or just updated
           if (upsertedEmployee.createdAt.getTime() === upsertedEmployee.updatedAt.getTime()) {
             result.employeesCreated++;
           } else {
             result.employeesUpdated++;
           }
         } catch (e: any) {
-            result.errors.push(`Failed to process employee with EID ${eid}: ${e.message}`);
+          result.errors.push(`Failed to process employee with EID ${eid}: ${e.message}`);
         }
-      } else if (!isEmployee && eid) {
-        // --- Process a Dependent Record ---
-        // (Logic for dependents can be added here in the future)
+      } else {
+        // Process Dependent
+        const dependentData = {
+          eid,
+          firstName: record['First Name'] || '',
+          lastName: record['Last Name'] || '',
+          middleName: record['Middle Name'],
+          ssn: record['SSN'],
+          birthDate: this.parseDate(record['Birth Date']),
+          gender: record['Sex'],
+          relationship: record['Relationship'],
+          employeeId: '',
+        };
+
+        try {
+          // Find the parent employee by EID
+          const employee = await prisma.employee.findUnique({ where: { eid } });
+          if (!employee) {
+            result.errors.push(`Dependent with EID ${eid} skipped: No matching employee.`);
+            continue;
+          }
+          dependentData.employeeId = employee.id;
+
+          // Use SSN if available, otherwise use composite key
+          const whereClause = dependentData.ssn
+            ? { ssn: dependentData.ssn }
+            : { eid_firstName_lastName_relationship: { eid, firstName: dependentData.firstName, lastName: dependentData.lastName, relationship: dependentData.relationship } };
+
+          const upsertedDependent = await prisma.dependent.upsert({
+            where: whereClause,
+            update: dependentData,
+            create: dependentData,
+          });
+
+          if (upsertedDependent.createdAt.getTime() === upsertedDependent.updatedAt.getTime()) {
+            result.dependentsCreated++;
+          } else {
+            result.dependentsUpdated++;
+          }
+        } catch (e: any) {
+          result.errors.push(`Failed to process dependent with EID ${eid}: ${e.message}`);
+        }
       }
     }
-    
+
     console.log(`Reconciliation complete for ${companyName}.`, result);
+    await prisma.$disconnect();
     return result;
   }
 }

@@ -13,7 +13,7 @@ const envPath = path.resolve(__dirname, '../.env');
 dotenv.config({ path: envPath });
 
 async function runSyncDataTest() {
-  const companyNameToTest = "in his hands insurance services";
+  const companyNameToTest = "Insert company name here";
 
   if (!process.env.EASE_EMAIL || !process.env.EASE_PASSWORD) {
     throw new Error("Ease credentials must be set in the .env file.");
@@ -26,7 +26,7 @@ async function runSyncDataTest() {
 
     // Call the new high-level workflow
     const results = await CensusActions.synchronizeCompanyData(easeApp.page!, companyNameToTest);
-    
+
     console.log("\n✅ Test completed successfully!");
     console.log("--- Reconciliation Summary ---");
     console.log(JSON.stringify(results, null, 2));

@@ -7,107 +7,84 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("EASE_DATABASE_URL")
+  url = env("EASE_DATABASE_URL")
 }
 
-// ===================================
-// Census Template Models (For defining rules)
-// ===================================
-
 model CensusTemplate {
-  id          String   @id @default(cuid())
-  templateKey String   @unique // e.g., "initial-enrollment", "employee-update"
-  name        String
+  id String @id @default(cuid())
+  templateKey String @unique
+  name String
   description String?
-
   fields CensusTemplateField[]
 }
 
 model CensusTemplateField {
-  id          String  @id @default(cuid())
-  columnName  String  // The exact header name required by Ease, e.g., "First Name"
-  mapsToField String  // The corresponding field in our Employee/Dependent model, e.g., "firstName"
-  isRequired  Boolean @default(false)
-
-  template   CensusTemplate @relation(fields: [templateId], references: [id])
+  id String @id @default(cuid())
+  columnName String
+  mapsToField String
+  isRequired Boolean @default(false)
+  template CensusTemplate @relation(fields: [templateId], references: [id])
   templateId String
 }
 
-// ===================================
-// Stored Employee Data Models (Mirrors Ease data)
-// ===================================
-
 model Company {
-  id   String @id @default(cuid())
+  id String @id @default(cuid())
   name String @unique
-
   employees Employee[]
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Employee {
-  id        String  @id @default(cuid())
-  eid       String? @unique // Employee ID
-  
-  // Personal Details
-  firstName    String
-  middleName   String?
-  lastName     String
-  ssn          String?
-  birthDate    DateTime?
-  gender          String? // "Sex" in CSV
+  id String @id @default(cuid())
+  eid String? @unique
+  firstName String
+  middleName String?
+  lastName String
+  ssn String?
+  birthDate DateTime?
+  gender String?
   maritalStatus String?
-  email        String?
+  email String?
   personalEmail String?
-
-  // Contact Info
-  address1     String?
-  address2     String?
-  city         String?
-  state        String?
-  zipCode      String?
-  county       String?
+  address1 String?
+  address2 String?
+  city String?
+  state String?
+  zipCode String?
+  county String?
   personalPhone String?
-  workPhone    String?
-  mobilePhone  String?
-
-  // Employment Details
-  hireDate          DateTime?
-  terminationDate   DateTime?
-  employmentType    String? // Full-Time, Part-Time
-  status            String? // Active, Terminated
-  jobTitle          String?
-  payCycle          String?
-  compensationAmount   Decimal?
-  compensationType     String? // Salary, Hourly
-  scheduledHours       Float?
-
-  company   Company @relation(fields: [companyId], references: [id])
+  workPhone String?
+  mobilePhone String?
+  hireDate DateTime?
+  terminationDate DateTime?
+  employmentType String?
+  status String?
+  jobTitle String?
+  payCycle String?
+  compensationAmount Decimal?
+  compensationType String?
+  scheduledHours Float?
+  company Company @relation(fields: [companyId], references: [id])
   companyId String
-
   dependents Dependent[]
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Dependent {
-  id        String  @id @default(cuid())
-  
-  // Personal Details
-  firstName    String
-  middleName   String?
-  lastName     String
-  ssn          String?
-  birthDate    DateTime?
-  gender       String?
-  relationship String // Spouse, Child
-
-  employee   Employee @relation(fields: [employeeId], references: [id])
+  id String @id @default(cuid())
+  eid String
+  firstName String
+  middleName String?
+  lastName String
+  ssn String? @unique
+  birthDate DateTime?
+  gender String?
+  relationship String
+  employee Employee @relation(fields: [employeeId], references: [id])
   employeeId String
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  @@unique([eid, firstName, lastName, relationship]) // Composite key for uniqueness
 }
