@@ -13,7 +13,7 @@ const envPath = path.resolve(__dirname, '../.env');
 dotenv.config({ path: envPath });
 
 async function runSyncDataTest() {
-  const companyNameToTest = "insert company here";
+  const companyNameToTest = "in his hands";
 
   if (!process.env.EASE_EMAIL || !process.env.EASE_PASSWORD) {
     throw new Error("Ease credentials must be set in the .env file.");

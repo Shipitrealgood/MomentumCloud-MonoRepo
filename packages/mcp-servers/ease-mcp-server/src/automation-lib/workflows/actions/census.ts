@@ -13,8 +13,10 @@ export class CensusActions {
     console.log(`WORKFLOW: Starting data synchronization for "${companyName}"...`);
 
     try {
-      // 1. Navigate to the company's employee page.
-      await CompanyNavigationWorkflows.navigateToCompanyDashboard(page, companyName);
+      // 1. Navigate to the company's employee page and extract the full official name.
+      const fullCompanyName = await CompanyNavigationWorkflows.navigateToCompanyDashboard(page, companyName);
+      console.log(`Extracted full company name from Ease: "${fullCompanyName}"`);
+      
       const companyDashboard = new CompanyDashboardPage(page);
       await companyDashboard.goToEmployeesTab();
 
@@ -43,7 +45,8 @@ export class CensusActions {
       let downloadPath: string;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          downloadPath = await reportsPage.downloadLatestFullCensus(companyName);
+          // Pass the fullCompanyName to the download method (update ReportsPage if needed to use it for precise matching)
+          downloadPath = await reportsPage.downloadLatestFullCensus(fullCompanyName);
           console.log(`Downloaded census file: ${downloadPath}`);
           break;
         } catch (e: any) {
@@ -53,11 +56,11 @@ export class CensusActions {
         }
       }
 
-      // 6. Reconcile with database.
-      const results = await CensusService.reconcileCensusData(downloadPath!, companyName);
+      // 6. Reconcile with database using the full official name.
+      const results = await CensusService.reconcileCensusData(downloadPath!, fullCompanyName);
       console.log(`   - Reconciliation with database is complete.`, results);
 
-      console.log(`WORKFLOW: Synchronization for "${companyName}" finished.`);
+      console.log(`WORKFLOW: Synchronization for "${fullCompanyName}" finished.`);
       return results;
     } catch (error: any) {
       console.error(`Synchronization failed for "${companyName}": ${error.message}`);

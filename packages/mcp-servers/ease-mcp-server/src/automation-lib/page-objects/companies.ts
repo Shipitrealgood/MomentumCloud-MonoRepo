@@ -38,11 +38,12 @@ export class CompaniesListPage {
 
   /**
    * Navigates from the dashboard to the companies list, searches for a specific
-   * company, and clicks on their link to go to their dashboard.
+   * company, extracts the full official name from the link, and clicks on their link to go to their dashboard.
    * This method includes a robust wait to handle dynamic UI updates.
-   * @param companyName The name of the company to search for.
+   * @param companyName The (potentially partial) name of the company to search for.
+   * @returns The full official company name as displayed in Ease.
    */
-  async searchAndNavigateToCompany(companyName: string): Promise<void> {
+  async searchAndNavigateToCompany(companyName: string): Promise<string> {
     console.log(`Navigating to company: ${companyName}...`);
     await this.companiesLink.click();
     await this.searchBox.fill(companyName);
@@ -51,9 +52,15 @@ export class CompaniesListPage {
 
     const link = this.companyLink(companyName);
     await link.waitFor();
+
+    // Extract the full name from the link text (this is the official name from Ease)
+    const fullCompanyName = await link.innerText();
+    console.log(`Extracted full company name: ${fullCompanyName.trim()}`);
+
     await link.click();
     
-    console.log(`Successfully clicked on company link for ${companyName}.`);
+    console.log(`Successfully clicked on company link for ${fullCompanyName}.`);
+    return fullCompanyName.trim();
   }
 
     /**
