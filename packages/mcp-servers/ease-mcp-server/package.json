@@ -19,6 +19,7 @@
     "clean": "rimraf dist .tsbuildinfo node_modules prisma/generated",
     "db:migrate": "prisma migrate dev --name init",
     "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset",
     "db:seed": "npm run build && node dist/ingest-census-templates.js"
   },
   "engines": {

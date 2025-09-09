@@ -65,6 +65,14 @@ model Employee {
   compensationAmount Decimal?
   compensationType String?
   scheduledHours Float?
+
+  // --- NEW FIELDS ---
+  enrollmentStatus  String?    // From "Enrollment Status"
+  signatureDate     DateTime?
+  lastLoginDate     DateTime?
+  benefitEligibleDate DateTime?
+  // --- END OF NEW FIELDS ---
+
   company Company @relation(fields: [companyId], references: [id])
   companyId String
   dependents Dependent[]

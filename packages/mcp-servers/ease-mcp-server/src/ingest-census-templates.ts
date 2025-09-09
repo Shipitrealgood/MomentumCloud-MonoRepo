@@ -37,6 +37,22 @@ const fullCensusTemplate = {
   ]
 };
 
+// --- NEW TEMPLATE DEFINITION ---
+const enrollmentProgressTemplate = {
+    templateKey: 'ease-enrollment-progress',
+    name: 'Ease Enrollment Progress',
+    description: 'Shows the progress of employees going through enrollment and includes their Ease status.',
+    fields: [
+        { columnName: 'EID', mapsToField: 'eid', isRequired: true },
+        { columnName: 'Enrollment Status', mapsToField: 'enrollmentStatus', isRequired: false },
+        { columnName: 'Signature Date', mapsToField: 'signatureDate', isRequired: false },
+        { columnName: 'Last Login Date', mapsToField: 'lastLoginDate', isRequired: false },
+        { columnName: 'Benefit Eligible Date', mapsToField: 'benefitEligibleDate', isRequired: false },
+    ]
+};
+// --- END OF NEW TEMPLATE ---
+
+
 async function main() {
   console.log('Seeding census templates into the database...');
 
@@ -52,6 +68,21 @@ async function main() {
       },
     },
   });
+
+  // --- UPSERT THE NEW TEMPLATE ---
+  await prisma.censusTemplate.upsert({
+    where: { templateKey: enrollmentProgressTemplate.templateKey },
+    update: {},
+    create: {
+        templateKey: enrollmentProgressTemplate.templateKey,
+        name: enrollmentProgressTemplate.name,
+        description: enrollmentProgressTemplate.description,
+        fields: {
+            create: enrollmentProgressTemplate.fields,
+        },
+    },
+  });
+  // --- END OF UPSERT ---
 
   console.log('✅ Census template seeding complete.');
 }
