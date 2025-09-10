@@ -26,6 +26,7 @@
     { "path": "packages/momentum-cloud/crm" },
     { "path": "packages/orchestrator-host" },
     { "path": "packages/shared-utils" },
-    { "path": "packages/momentum-cloud/pdf-filler" }
+    { "path": "packages/momentum-cloud/pdf-filler" },
+    { "path": "packages/momentum-cloud/data-transformer" }
   ]
 }

@@ -94,6 +94,19 @@
       "env": [
         "PDF_FILLER_PORT"
       ]
+    },
+    "@momentum/data-transformer#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        "tsconfig.tsbuildinfo"
+      ],
+      "env": [
+        "DATA_TRANSFORMER_DATABASE_URL",
+        "DATA_TRANSFORMER_PORT"
+      ]
     }
   }
 }

@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATA_TRANSFORMER_DATABASE_URL")
+}
+
+// ===================================
+// Data Transformation Models
+// ===================================
+
+model DataTemplate {
+  id          String   @id @default(cuid())
+  templateKey String   @unique // e.g., "allied-carrier-export-v1", "ease-full-census-import"
+  name        String   // e.g., "Allied Carrier Export Template"
+  type        TemplateType
+  description String?
+  
+  fields      DataTemplateField[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum TemplateType {
+  IMPORT
+  EXPORT
+}
+
+model DataTemplateField {
+  id               String  @id @default(cuid())
+  templateId       String
+  template         DataTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // For IMPORT: The column name in the source file (e.g., "First Name")
+  // For EXPORT: The field name in the canonical data model (e.g., "firstName")
+  sourceField      String
+  
+  // For IMPORT: The field name in the canonical data model (e.g., "firstName")
+  // For EXPORT: The column header in the destination file (e.g., "Participant First Name")
+  destinationField String
+
+  // A description of the field for UI/documentation purposes
+  description      String?
+
+  @@unique([templateId, sourceField])
+  @@unique([templateId, destinationField])
+}
