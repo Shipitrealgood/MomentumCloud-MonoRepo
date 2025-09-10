@@ -1,6 +1,7 @@
 import { PrismaClient, DataTemplate } from '../../prisma/generated/client/index.js';
 import { parse } from 'csv-parse/sync';
 import { stringify } from 'csv-stringify/sync';
+import { formatters } from '../utils/formatters.js';
 
 const prisma = new PrismaClient();
 
@@ -8,10 +9,16 @@ export type FieldMappingPayload = {
   sourceField: string;
   destinationField: string;
   description?: string;
+  formatter?: string;
 };
 
+// Helper to safely access nested properties
+function getNestedValue(obj: any, path: string): any {
+    return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+}
+
+
 export class TransformerService {
-  // --- Existing methods (createTemplateFromCsv, defineTemplateMappings, findTemplateByKey) remain here ---
   
   /**
    * Ingests a sample CSV file to create a new template schema.
@@ -66,6 +73,7 @@ export class TransformerService {
           sourceField: m.sourceField,
           destinationField: m.destinationField,
           description: m.description,
+          formatter: m.formatter,
         })),
       });
       return tx.dataTemplate.findUniqueOrThrow({
@@ -85,8 +93,6 @@ export class TransformerService {
       include: { fields: true },
     });
   }
-
-  // --- NEW TRANSFORMATION METHODS ---
 
   /**
    * Transforms a raw CSV string into an array of canonical JSON objects.
@@ -117,6 +123,36 @@ export class TransformerService {
   }
 
   /**
+   * Transforms an array of canonical JSON objects into a new array of JSON objects
+   * structured for a specific destination (like a PDF filler).
+   * @param templateKey The EXPORT template to use for the mapping.
+   * @param data The array of canonical data.
+   * @returns An array of transformed JSON objects.
+   */
+  public static async transformData(templateKey: string, data: any[]): Promise<any[]> {
+    const template = await this.findTemplateByKey(templateKey);
+    if (!template || template.type !== 'EXPORT' || !template.fields.length) {
+      throw new Error(`Valid EXPORT template with key "${templateKey}" not found or has no mappings.`);
+    }
+
+    return data.map(record => {
+      const newObj: { [key: string]: any } = {};
+      for (const fieldMapping of template.fields) {
+        const { sourceField, destinationField, formatter } = fieldMapping;
+        
+        let value = getNestedValue(record, sourceField);
+
+        if (formatter && formatters[formatter]) {
+          value = formatters[formatter](value);
+        }
+        
+        newObj[destinationField] = value ?? '';
+      }
+      return newObj;
+    });
+  }
+
+  /**
    * Transforms an array of canonical JSON objects into a CSV string.
    * @param templateKey The EXPORT template to use for the mapping.
    * @param data The array of canonical data.
@@ -128,18 +164,13 @@ export class TransformerService {
       throw new Error(`Valid EXPORT template with key "${templateKey}" not found or has no mappings.`);
     }
 
-    const mapping = new Map(template.fields.map(f => [f.sourceField, f.destinationField]));
+    // Use the new transformData method to get the correctly formatted JSON first
+    const transformedData = await this.transformData(templateKey, data);
+    
+    // Then, stringify that JSON into a CSV
     const headers = template.fields.map(f => f.destinationField);
+    const uniqueHeaders = [...new Set(headers)]; // Handle cases where multiple source fields map to one destination (not typical for CSV)
 
-    const exportedData = data.map(record => {
-      const newObj: { [key: string]: any } = {};
-      for (const sourceField of mapping.keys()) {
-        const destinationField = mapping.get(sourceField)!;
-        newObj[destinationField] = record[sourceField] || '';
-      }
-      return newObj;
-    });
-
-    return stringify(exportedData, { header: true, columns: headers });
+    return stringify(transformedData, { header: true, columns: uniqueHeaders });
   }
 }

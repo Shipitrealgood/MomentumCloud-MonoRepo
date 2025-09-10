@@ -22,7 +22,7 @@ router.post('/import/:templateKey', upload.single('file'), async (req, res) => {
   }
 });
 
-// Route for EXPORTING data (JSON -> CSV string)
+// Route for EXPORTING data (JSON -> different JSON structure)
 router.post('/export/:templateKey', async (req, res) => {
     try {
       const { templateKey } = req.params;
@@ -32,15 +32,37 @@ router.post('/export/:templateKey', async (req, res) => {
         return res.status(400).json({ message: 'Request body must include a "data" array.' });
       }
   
-      const csvString = await TransformerService.transformToCsv(templateKey, data);
+      // --- THE FIX ---
+      // Call the new `transformData` method which returns JSON
+      const transformedJson = await TransformerService.transformData(templateKey, data);
       
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="export_${templateKey}_${Date.now()}.csv"`);
-      res.status(200).send(csvString);
+      // Send the JSON response
+      res.status(200).json(transformedJson);
+      // ---------------
 
     } catch (error: any) {
       res.status(400).json({ message: `Error exporting data for template '${req.params.templateKey}'.`, error: error.message });
     }
   });
+
+// New, separate route for CSV generation if you still need it
+router.post('/export-csv/:templateKey', async (req, res) => {
+    try {
+        const { templateKey } = req.params;
+        const data = req.body.data;
+
+        if (!Array.isArray(data)) {
+            return res.status(400).json({ message: 'Request body must include a "data" array.' });
+        }
+
+        const csvString = await TransformerService.transformToCsv(templateKey, data);
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="export_${templateKey}_${Date.now()}.csv"`);
+        res.status(200).send(csvString);
+    } catch (error: any) {
+        res.status(400).json({ message: `Error exporting data for template '${req.params.templateKey}'.`, error: error.message });
+    }
+});
 
 export { router as transformRoutes };
