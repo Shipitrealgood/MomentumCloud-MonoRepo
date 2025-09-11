@@ -15,6 +15,7 @@
     "test:add-employee:debug": "cross-env PWDEBUG=1 node dist/addEmployeeTest.js",
     "test:terminate": "node dist/terminateEmployeeTest.js",
     "test:upload-census": "node dist/syncDataTest.js",
+    "test:debug-dropdown": "node dist/debugTest.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "clean": "rimraf dist .tsbuildinfo node_modules prisma/generated",
     "db:migrate": "prisma migrate dev --name init",

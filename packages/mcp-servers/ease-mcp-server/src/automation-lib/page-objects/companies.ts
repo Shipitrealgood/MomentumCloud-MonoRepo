@@ -37,6 +37,23 @@ export class CompaniesListPage {
   // --- Actions (What you can do on this page) ---
 
   /**
+   * Searches for a company and extracts its full official name from the link text.
+   * @param companyName The (potentially partial) name of the company to search for.
+   * @returns The full official company name as displayed in Ease.
+   */
+  async searchAndExtractFullCompanyName(companyName: string): Promise<string> {
+    await this.searchBox.fill(companyName);
+    await this.searchBox.press('Enter');
+    
+    const link = this.companyLink(companyName);
+    await link.waitFor();
+
+    const fullCompanyName = await link.innerText();
+    const trimmedName = fullCompanyName.trim();
+    return trimmedName;
+  }
+
+  /**
    * Navigates from the dashboard to the companies list, searches for a specific
    * company, extracts the full official name from the link, and clicks on their link to go to their dashboard.
    * This method includes a robust wait to handle dynamic UI updates.
